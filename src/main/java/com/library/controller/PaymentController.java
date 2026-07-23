@@ -1,5 +1,6 @@
 package com.library.controller;
 
+import com.library.bean.ChangeSeatRequest;
 import com.library.bean.PaymentDetails;
 import com.library.bean.UpdateStatusRequest;
 import com.library.bean.VerifyPaymentRequest;
@@ -119,6 +120,14 @@ public class PaymentController {
 	@GetMapping("/seats/status")
 	public ResponseEntity<Map<String, Object>> seatsStatus(@RequestParam String shift) {
 		Map<String, Object> result = paymentService.seatsStatus(shift);
+		int httpStatus = (int) result.remove("httpStatus");
+		return ResponseEntity.status(httpStatus).body(result);
+	}
+	
+	// Admin reassigns a student's booked seat(s) to a new seat number
+	@PutMapping("/change-seat")
+	public ResponseEntity<Map<String, Object>> changeSeat(@RequestBody ChangeSeatRequest request) {
+		Map<String, Object> result = paymentService.changeSeat(request);
 		int httpStatus = (int) result.remove("httpStatus");
 		return ResponseEntity.status(httpStatus).body(result);
 	}

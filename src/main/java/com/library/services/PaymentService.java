@@ -1,5 +1,6 @@
 package com.library.services;
 
+import com.library.bean.ChangeSeatRequest;
 import com.library.bean.PaymentDetails;
 import com.library.bean.UpdateStatusRequest;
 import com.library.bean.VerifyPaymentRequest;
@@ -43,4 +44,6 @@ public interface PaymentService {
 	Map<String, Object> setAllActive();
 
 	Map<String, Object> seatsStatus(String shift);
+	
+	Map<String, Object> changeSeat(ChangeSeatRequest request);
 }

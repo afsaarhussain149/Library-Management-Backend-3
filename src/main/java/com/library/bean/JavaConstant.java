@@ -59,6 +59,13 @@ public class JavaConstant {
 	public final static String GET_PAID_BOOKINGS_FOR_SEAT =
 			"select * from payment where status = 'paid' and seats like '%' || ?1 || '%'";
 	public final static String GET_ALL_PAID_PAYMENTS = "select * from payment where status = 'paid'";
+	public final static String GET_ACTIVE_PAID_PAYMENT_BY_USER_ID =
+	        "select * from payment where user_id = ?1 and status = 'paid' and is_active = true " +
+	        "order by created_at desc limit 1";
+	public final static String GET_ACTIVE_PAID_PAYMENTS_EXCLUDING =
+	        "select * from payment where status = 'paid' and is_active = true and payment_id <> ?1";
+	public final static String UPDATE_PAYMENT_SEATS =
+	        "update payment set seats = ?1, updated_at = CURRENT_TIMESTAMP where payment_id = ?2";
 	public final static String COUNT_ALL_PAYMENTS = "select count(*) from payment";
 	public final static String ADD_SEAT_BLOCK_FLAG_TO_OLD_RECORDS =
 			"update payment set plan_expire_seat_block = false where plan_expire_seat_block is null";

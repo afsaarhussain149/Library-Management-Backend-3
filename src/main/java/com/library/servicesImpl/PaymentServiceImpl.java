@@ -298,15 +298,25 @@ public class PaymentServiceImpl implements PaymentService {
 			List<Map> countRows = iGenericDao.executeDDLSQL(countQuery, params.toArray());
 			long total = ((Number) countRows.get(0).values().iterator().next()).longValue();
 
-			String dataQuery =
-				"select u.user_id as user_id, u.full_name as full_name, u.phone_number as phone_number, " +
-				"u.email as email, u.personal_number as personal_number, " +
-				"p.payment_id as payment_id, p.status as payment_status, p.is_active as payment_is_active, " +
-				"p.plan_hours as plan_hours, p.plan_type as plan_type, p.shift_label as shift_label, " +
-				"p.seats as seats, p.created_at as payment_created_at " +
-				baseFrom + where + " order by u.created_at desc limit ?" + (params.size() + 1) +
-				" offset ?" + (params.size() + 2);
+//			String dataQuery =
+//				"select u.user_id as user_id, u.full_name as full_name, u.phone_number as phone_number, " +
+//				"u.email as email, u.personal_number as personal_number, " +
+//				"p.payment_id as payment_id, p.status as payment_status, p.is_active as payment_is_active, " +
+//				"p.plan_hours as plan_hours, p.plan_type as plan_type, p.shift_label as shift_label, " +
+//				"p.seats as seats, p.created_at as payment_created_at " +
+//				baseFrom + where + " order by u.created_at desc limit ?" + (params.size() + 1) +
+//				" offset ?" + (params.size() + 2);
 
+			String dataQuery =
+				    "select u.user_id as user_id, u.full_name as full_name, u.phone_number as phone_number, " +
+				    "u.email as email, u.personal_number as personal_number, u.photo as photo, " +
+				    "p.payment_id as payment_id, p.status as payment_status, p.is_active as payment_is_active, " +
+				    "p.amount as amount, p.plan_hours as plan_hours, p.plan_type as plan_type, " +
+				    "p.shift_label as shift_label, p.shift_time as shift_time, " +
+				    "p.seats as seats, p.created_at as payment_created_at " +
+				    baseFrom + where + " order by u.created_at desc limit ?" + (params.size() + 1) +
+				    " offset ?" + (params.size() + 2);
+			
 			List<Object> dataParams = new ArrayList<>(params);
 			dataParams.add(limit);
 			dataParams.add(offset);
@@ -663,6 +673,83 @@ public class PaymentServiceImpl implements PaymentService {
 			result.put("httpStatus", 500);
 			result.put("success", false);
 			result.put("message", e.getMessage());
+			return result;
+		}
+	}
+	
+	// ============ PUT /change-seat ============
+	@Override
+	@Transactional
+	public Map<String, Object> changeSeat(ChangeSeatRequest request) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		try {
+			if (request.getUserId() == null || request.getNewSeats() == null || request.getNewSeats().isEmpty()) {
+				result.put("httpStatus", 400);
+				result.put("success", false);
+				result.put("message", "userId and newSeats are required");
+				return result;
+			}
+
+			List<Map> paymentRows = iGenericDao.executeDDLSQL(JavaConstant.GET_ACTIVE_PAID_PAYMENT_BY_USER_ID,
+					new Object[] { String.valueOf(request.getUserId()) });
+
+			if (paymentRows == null || paymentRows.isEmpty()) {
+				result.put("httpStatus", 404);
+				result.put("success", false);
+				result.put("message", "No active paid plan found for this user");
+				return result;
+			}
+
+			Map currentPayment = paymentRows.get(0);
+			Object paymentId = currentPayment.get("payment_id");
+			String shiftTime = (String) currentPayment.get("shift_time");
+
+			if (shiftTime == null) {
+				result.put("httpStatus", 400);
+				result.put("success", false);
+				result.put("message", "Existing plan has no shift time recorded, cannot check seat clash");
+				return result;
+			}
+
+			ShiftTimeUtil.Range requestedRange = ShiftTimeUtil.parseShift(shiftTime);
+
+			// every other currently active, paid booking (excluding this student's own payment)
+			List<Map> otherActivePayments = iGenericDao.executeDDLSQL(
+					JavaConstant.GET_ACTIVE_PAID_PAYMENTS_EXCLUDING, new Object[] { paymentId });
+
+			for (Integer seatNo : request.getNewSeats()) {
+				for (Map other : otherActivePayments) {
+					List<Integer> otherSeats = stringToSeats(other.get("seats"));
+					if (!otherSeats.contains(seatNo)) continue;
+
+					String otherShiftTime = (String) other.get("shift_time");
+					if (otherShiftTime == null) continue;
+
+					ShiftTimeUtil.Range otherRange = ShiftTimeUtil.parseShift(otherShiftTime);
+					if (ShiftTimeUtil.isOverlap(requestedRange, otherRange)) {
+						result.put("httpStatus", 400);
+						result.put("success", false);
+						result.put("message", "Seat " + seatNo + " is already booked for an overlapping shift");
+						return result;
+					}
+				}
+			}
+
+			iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_SEATS,
+					new Object[] { seatsToString(request.getNewSeats()), paymentId });
+
+			List<Map> updated = iGenericDao.executeDDLSQL(JavaConstant.GET_PAYMENT_BY_ID, new Object[] { paymentId });
+
+			result.put("httpStatus", 200);
+			result.put("success", true);
+			result.put("message", "Seat changed successfully");
+			result.put("payment", updated != null && !updated.isEmpty() ? updated.get(0) : null);
+			return result;
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("httpStatus", 500);
+			result.put("success", false);
+			result.put("message", "Seat change failed: " + e.getMessage());
 			return result;
 		}
 	}
