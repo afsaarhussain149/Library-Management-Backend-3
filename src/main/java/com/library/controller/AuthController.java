@@ -130,4 +130,14 @@ public class AuthController {
 		HttpStatus status = response.isSuccess() ? HttpStatus.OK : HttpStatus.NOT_FOUND;
 		return ResponseEntity.status(status).body(response);
 	}
+	
+	@GetMapping("/all-users")
+	public ResponseEntity<Map<String, Object>> getAllUsers(
+			@RequestParam(required = false) String fullName,
+			@RequestParam(required = false) String phone,
+			@RequestParam(required = false) String userId) {
+
+		Map<String, Object> result = authService.getAllUsers(fullName, phone, userId);
+		return ResponseEntity.ok(result);
+	}
 }

@@ -448,6 +448,48 @@ public class AuthServiceImpl implements AuthService {
 			return new ApiResponse(false, "Server error: " + e.getMessage());
 		}
 	}
+	
+	@Override
+	public Map<String, Object> getAllUsers(String fullName, String phone, String userId) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		try {
+			StringBuilder where = new StringBuilder(" where 1=1 ");
+			List<Object> params = new ArrayList<>();
+
+			if (userId != null && !userId.isBlank()) {
+				where.append(" and user_id = ?").append(params.size() + 1);
+				params.add(Integer.parseInt(userId));
+			}
+			if (fullName != null && !fullName.isBlank()) {
+				where.append(" and full_name ilike ?").append(params.size() + 1);
+				params.add("%" + fullName + "%");
+			}
+			if (phone != null && !phone.isBlank()) {
+				where.append(" and phone_number ilike ?").append(params.size() + 1);
+				params.add("%" + phone + "%");
+			}
+
+			// password column intentionally excluded from the select list
+			String query =
+				"select user_id, full_name, phone_number, photo, father_name, preparation_for, " +
+				"dob, blood_group, email, personal_number, emergency_number, present_address, " +
+				"permanent_address, gender, aadhar_number, created_at, updated_at " +
+				"from app_user" + where + " order by created_at desc";
+
+			List<Map> data = iGenericDao.executeDDLSQL(query, params.toArray());
+
+			result.put("success", true);
+			result.put("total", data.size());
+			result.put("data", data);
+			return result;
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("success", false);
+			result.put("message", "Fetch all users error");
+			result.put("data", Collections.emptyList());
+			return result;
+		}
+	}
 
 	private Map<String, String> allowedProfileColumns() {
 		Map<String, String> m = new HashMap<>();

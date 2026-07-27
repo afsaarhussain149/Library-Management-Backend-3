@@ -26,4 +26,6 @@ public interface AuthService {
 	ApiResponse completeProfile(String phoneNumber, Map<String, Object> fields, MultipartFile photo);
 
 	ApiResponse editProfile(Integer userId, Map<String, Object> fields, MultipartFile photo);
+	
+	Map<String, Object> getAllUsers(String fullName, String phone, String userId);
 }
