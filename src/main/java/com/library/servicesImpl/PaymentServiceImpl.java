@@ -310,6 +310,9 @@ public class PaymentServiceImpl implements PaymentService {
 			String dataQuery =
 				    "select u.user_id as user_id, u.full_name as full_name, u.phone_number as phone_number, " +
 				    "u.email as email, u.personal_number as personal_number, u.photo as photo, " +
+				    "u.father_name as father_name, u.preparation_for as preparation_for, u.dob as dob," +
+				    "u.blood_group as blood_group, u.emergency_number as emergency_number, u.present_address as present_address," +
+				    "u.permanent_address as permanent_address, u.gender as gender, u.aadhar_number as aadhar_number," +
 				    "p.payment_id as payment_id, p.status as payment_status, p.is_active as payment_is_active, " +
 				    "p.amount as amount, p.plan_hours as plan_hours, p.plan_type as plan_type, " +
 				    "p.shift_label as shift_label, p.shift_time as shift_time, " +
