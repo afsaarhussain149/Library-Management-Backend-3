@@ -407,8 +407,8 @@ public class AuthServiceImpl implements AuthService {
 			List<Object> values = new ArrayList<>();
 
 			Map<String, String> allowedColumns = allowedProfileColumns();
-			allowedColumns.put("gender", "gender");
-			allowedColumns.put("aadh", "aadhar_number");
+//			allowedColumns.put("gender", "gender");
+//			allowedColumns.put("aadh", "aadhar_number");
 
 			for (Map.Entry<String, Object> e : fields.entrySet()) {
 				String column = allowedColumns.get(e.getKey());
@@ -505,6 +505,8 @@ public class AuthServiceImpl implements AuthService {
 		m.put("presentAddress", "present_address");
 		m.put("permanentAddress", "permanent_address");
 		m.put("password", "password");
+	    m.put("gender", "gender");
+	    m.put("aadh", "aadhar_number");
 		return m;
 	}
 }
