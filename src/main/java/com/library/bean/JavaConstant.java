@@ -66,6 +66,13 @@ public class JavaConstant {
 	        "select * from payment where status = 'paid' and is_active = true and payment_id <> ?1";
 	public final static String UPDATE_PAYMENT_SEATS =
 	        "update payment set seats = ?1, updated_at = CURRENT_TIMESTAMP where payment_id = ?2";
+	public final static String UPDATE_PAYMENT_SEATS_AND_SHIFT =
+	        "update payment set seats = ?1, shift_label = ?2, shift_time = ?3, updated_at = CURRENT_TIMESTAMP " +
+	        "where payment_id = ?4";
+	// Same as GET_ACTIVE_PAID_PAYMENTS_EXCLUDING but also excludes every booking belonging to a given user,
+	// used to check seat/time overlap while allowing a user's own renewal/edit to not clash with themselves.
+	public final static String GET_ACTIVE_PAID_PAYMENTS_EXCLUDING_USER =
+	        "select * from payment where status = 'paid' and is_active = true and user_id <> ?1";
 	public final static String COUNT_ALL_PAYMENTS = "select count(*) from payment";
 	public final static String ADD_SEAT_BLOCK_FLAG_TO_OLD_RECORDS =
 			"update payment set plan_expire_seat_block = false where plan_expire_seat_block is null";

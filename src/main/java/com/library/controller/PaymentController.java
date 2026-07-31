@@ -98,8 +98,9 @@ public class PaymentController {
 	}
 
 	@GetMapping("/seat/check")
-	public ResponseEntity<Map<String, Object>> checkSeat(@RequestParam Integer seatNo, @RequestParam String shift) {
-		return ResponseEntity.ok(paymentService.checkSeat(seatNo, shift));
+	public ResponseEntity<Map<String, Object>> checkSeat(@RequestParam Integer seatNo, @RequestParam String shift,
+			@RequestParam(required = false) Integer excludeUserId) {
+		return ResponseEntity.ok(paymentService.checkSeat(seatNo, shift, excludeUserId));
 	}
 
 	@GetMapping("/all/{page}")
