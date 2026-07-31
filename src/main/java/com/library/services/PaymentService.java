@@ -35,7 +35,7 @@ public interface PaymentService {
 
 	Map<String, Object> paymentsByUser(String userId);
 
-	Map<String, Object> checkSeat(Integer seatNo, String shift);
+	Map<String, Object> checkSeat(Integer seatNo, String shift, Integer excludeUserId);
 
 	Map<String, Object> allPayments(int page);
 

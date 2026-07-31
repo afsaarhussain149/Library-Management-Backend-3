@@ -63,6 +63,48 @@ public class PaymentServiceImpl implements PaymentService {
 
 	private int getPageLimit() { return 10; }
 
+	/**
+	 * Checks whether any of {@code seats} clash (same seat + overlapping shift time) with another
+	 * currently active, paid booking. Bookings belonging to {@code excludeUserId} are ignored so a
+	 * student's own renewal/edit never conflicts with their own existing booking, and the booking
+	 * identified by {@code excludePaymentId} (if any) is also skipped.
+	 *
+	 * Returns the first conflicting seat number, or null if there is no clash.
+	 */
+	private Integer findConflictingSeat(List<Integer> seats, String shiftTime, Object excludeUserId,
+			Object excludePaymentId) {
+		if (seats == null || seats.isEmpty() || shiftTime == null) return null;
+
+		ShiftTimeUtil.Range requestedRange = ShiftTimeUtil.parseShift(shiftTime);
+		List<Map> otherActivePayments = excludeUserId != null
+				? iGenericDao.executeDDLSQL(JavaConstant.GET_ACTIVE_PAID_PAYMENTS_EXCLUDING_USER,
+						new Object[] { String.valueOf(excludeUserId) })
+				: iGenericDao.executeDDLSQL(JavaConstant.GET_ALL_PAID_PAYMENTS, new Object[] {});
+
+		for (Integer seatNo : seats) {
+			for (Map other : otherActivePayments) {
+				if (excludePaymentId != null
+						&& String.valueOf(excludePaymentId).equals(String.valueOf(other.get("payment_id")))) {
+					continue;
+				}
+				Boolean isActive = (Boolean) other.get("is_active");
+				if (!Boolean.TRUE.equals(isActive)) continue;
+
+				List<Integer> otherSeats = stringToSeats(other.get("seats"));
+				if (!otherSeats.contains(seatNo)) continue;
+
+				String otherShiftTime = (String) other.get("shift_time");
+				if (otherShiftTime == null) continue;
+
+				ShiftTimeUtil.Range otherRange = ShiftTimeUtil.parseShift(otherShiftTime);
+				if (ShiftTimeUtil.isOverlap(requestedRange, otherRange)) {
+					return seatNo;
+				}
+			}
+		}
+		return null;
+	}
+
 	// ============ GET /pending-cash-users/:page ============
 	@Override
 	public Map<String, Object> pendingCashUsers(int page) {
@@ -127,6 +169,18 @@ public class PaymentServiceImpl implements PaymentService {
 					|| p.getShiftLabel() == null || p.getSeats() == null) {
 				result.put("success", false);
 				result.put("message", "Missing fields");
+				return result;
+			}
+
+			// Safety-net: re-validate seat/time overlap on the server even though the
+			// frontend already checks availability, so a race between two students (or a
+			// stale UI) can never double-book the same seat for an overlapping shift.
+			// The requesting student's own existing bookings are excluded so renewing on
+			// the same seat/shift never blocks itself.
+			Integer conflictingSeat = findConflictingSeat(p.getSeats(), p.getShiftTime(), p.getUserId(), null);
+			if (conflictingSeat != null) {
+				result.put("success", false);
+				result.put("message", "Seat " + conflictingSeat + " is already booked for an overlapping shift");
 				return result;
 			}
 
@@ -490,11 +544,36 @@ public class PaymentServiceImpl implements PaymentService {
 				paymentRows = iGenericDao.executeDDLSQL(JavaConstant.GET_PAYMENT_BY_ORDER_ID, new Object[] { request.getRazorpayOrderId() });
 			}
 
-			if (paymentRows != null && !paymentRows.isEmpty()) {
-				Object paymentId = paymentRows.get(0).get("payment_id");
-				String newStatus = isValid ? "paid" : "failed";
+			if (paymentRows != null && !paymentRows.isEmpty() && isValid) {
+				Map payment = paymentRows.get(0);
+				Object paymentId = payment.get("payment_id");
+				Object userId = payment.get("user_id");
+				List<Integer> seats = stringToSeats(payment.get("seats"));
+				String shiftTime = (String) payment.get("shift_time");
+
+				// Safety-net: re-validate seat/time overlap right before actually activating
+				// the booking, so two students paying for the same seat/shift at nearly the
+				// same time can never both end up "paid". Excludes this student's own other
+				// bookings (renewal case) and this payment itself.
+				Integer conflictingSeat = findConflictingSeat(seats, shiftTime, userId, paymentId);
+				if (conflictingSeat != null) {
+					iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_VERIFY, new Object[] {
+							request.getRazorpayPaymentId(), request.getRazorpaySignature(), "failed", paymentId
+					});
+					result.put("httpStatus", 409);
+					result.put("success", false);
+					result.put("message", "Seat " + conflictingSeat
+							+ " was just booked for an overlapping shift by someone else. Payment could not be completed; please contact admin for a refund.");
+					return result;
+				}
+
 				iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_VERIFY, new Object[] {
-						request.getRazorpayPaymentId(), request.getRazorpaySignature(), newStatus, paymentId
+						request.getRazorpayPaymentId(), request.getRazorpaySignature(), "paid", paymentId
+				});
+			} else if (paymentRows != null && !paymentRows.isEmpty()) {
+				Object paymentId = paymentRows.get(0).get("payment_id");
+				iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_VERIFY, new Object[] {
+						request.getRazorpayPaymentId(), request.getRazorpaySignature(), "failed", paymentId
 				});
 			}
 
@@ -547,7 +626,7 @@ public class PaymentServiceImpl implements PaymentService {
 
 	// ============ GET /seat/check ============
 	@Override
-	public Map<String, Object> checkSeat(Integer seatNo, String shift) {
+	public Map<String, Object> checkSeat(Integer seatNo, String shift, Integer excludeUserId) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		if (seatNo == null || shift == null) {
 			result.put("success", false);
@@ -560,6 +639,14 @@ public class PaymentServiceImpl implements PaymentService {
 				new Object[] { String.valueOf(seatNo) });
 
 		for (Map b : bookings) {
+			// when checking on behalf of a specific student (e.g. admin editing their
+			// own seat/time), skip that student's own existing booking(s) so they
+			// don't clash with themselves
+			if (excludeUserId != null && String.valueOf(excludeUserId).equals(String.valueOf(b.get("user_id")))) {
+				continue;
+			}
+			Boolean isActive = (Boolean) b.get("is_active");
+			if (!Boolean.TRUE.equals(isActive)) continue;
 			List<Integer> seats = stringToSeats(b.get("seats"));
 			if (!seats.contains(seatNo)) continue;
 			String bookedShiftTime = (String) b.get("shift_time");
@@ -705,41 +792,39 @@ public class PaymentServiceImpl implements PaymentService {
 
 			Map currentPayment = paymentRows.get(0);
 			Object paymentId = currentPayment.get("payment_id");
-			String shiftTime = (String) currentPayment.get("shift_time");
+			String existingShiftTime = (String) currentPayment.get("shift_time");
+			String existingShiftLabel = (String) currentPayment.get("shift_label");
 
-			if (shiftTime == null) {
+			// Admin may optionally send a new shiftLabel/shiftTime along with the seat change.
+			// If not sent, we keep the student's current shift/time as-is.
+			String targetShiftTime = (request.getShiftTime() != null && !request.getShiftTime().isBlank())
+					? request.getShiftTime() : existingShiftTime;
+			String targetShiftLabel = (request.getShiftLabel() != null && !request.getShiftLabel().isBlank())
+					? request.getShiftLabel() : existingShiftLabel;
+
+			if (targetShiftTime == null) {
 				result.put("httpStatus", 400);
 				result.put("success", false);
 				result.put("message", "Existing plan has no shift time recorded, cannot check seat clash");
 				return result;
 			}
 
-			ShiftTimeUtil.Range requestedRange = ShiftTimeUtil.parseShift(shiftTime);
-
-			// every other currently active, paid booking (excluding this student's own payment)
-			List<Map> otherActivePayments = iGenericDao.executeDDLSQL(
-					JavaConstant.GET_ACTIVE_PAID_PAYMENTS_EXCLUDING, new Object[] { paymentId });
-
-			for (Integer seatNo : request.getNewSeats()) {
-				for (Map other : otherActivePayments) {
-					List<Integer> otherSeats = stringToSeats(other.get("seats"));
-					if (!otherSeats.contains(seatNo)) continue;
-
-					String otherShiftTime = (String) other.get("shift_time");
-					if (otherShiftTime == null) continue;
-
-					ShiftTimeUtil.Range otherRange = ShiftTimeUtil.parseShift(otherShiftTime);
-					if (ShiftTimeUtil.isOverlap(requestedRange, otherRange)) {
-						result.put("httpStatus", 400);
-						result.put("success", false);
-						result.put("message", "Seat " + seatNo + " is already booked for an overlapping shift");
-						return result;
-					}
-				}
+			// Validate the requested seat(s) against the *target* time (new time if the
+			// admin is changing it, otherwise the student's existing time). Only currently
+			// active, paid bookings (is_active = true) count as a clash, which implicitly
+			// respects plan/month validity - an expired/inactive booking never blocks.
+			Integer conflictingSeat = findConflictingSeat(request.getNewSeats(), targetShiftTime,
+					request.getUserId(), paymentId);
+			if (conflictingSeat != null) {
+				result.put("httpStatus", 400);
+				result.put("success", false);
+				result.put("message", "Seat " + conflictingSeat + " is already booked for an overlapping shift ("
+						+ targetShiftTime + ")");
+				return result;
 			}
 
-			iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_SEATS,
-					new Object[] { seatsToString(request.getNewSeats()), paymentId });
+			iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_SEATS_AND_SHIFT,
+					new Object[] { seatsToString(request.getNewSeats()), targetShiftLabel, targetShiftTime, paymentId });
 
 			List<Map> updated = iGenericDao.executeDDLSQL(JavaConstant.GET_PAYMENT_BY_ID, new Object[] { paymentId });
 
