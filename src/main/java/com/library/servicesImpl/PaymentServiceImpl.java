@@ -298,8 +298,14 @@ public class PaymentServiceImpl implements PaymentService {
 			}
 
 			Object paymentId = payments.get(0).get("payment_id");
-			iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_ACTIVE_STATUS,
-					new Object[] { request.getIsActive(), paymentId });
+
+			if (Boolean.FALSE.equals(request.getIsActive())) {
+			    iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_DEACTIVATE_AND_EXPIRE,
+			            new Object[] { paymentId });
+			} else {
+			    iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_ACTIVE_STATUS,
+			            new Object[] { request.getIsActive(), paymentId });
+			}
 
 			List<Map> updated = iGenericDao.executeDDLSQL(JavaConstant.GET_PAYMENT_BY_ID, new Object[] { paymentId });
 
