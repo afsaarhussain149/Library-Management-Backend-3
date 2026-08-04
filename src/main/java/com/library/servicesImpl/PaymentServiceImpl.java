@@ -171,6 +171,15 @@ public class PaymentServiceImpl implements PaymentService {
 				result.put("message", "Missing fields");
 				return result;
 			}
+			
+			List<Map> existingPending = iGenericDao.executeDDLSQL(JavaConstant.GET_LATEST_PENDING_CASH_BY_USER,
+			        new Object[] { p.getUserId() });
+			if (existingPending != null && !existingPending.isEmpty()) {
+			    result.put("success", false);
+			    result.put("message", "You already have a cash payment request pending admin approval. "
+			            + "Please wait until it is approved or rejected before sending another request.");
+			    return result;
+			}
 
 			// Safety-net: re-validate seat/time overlap on the server even though the
 			// frontend already checks availability, so a race between two students (or a
@@ -203,6 +212,42 @@ public class PaymentServiceImpl implements PaymentService {
 			result.put("message", "Error creating cash request");
 			return result;
 		}
+	}
+	
+	// ============ PATCH /reject/:id ============
+	// Companion to approve: lets admin reject a wrong/unwanted pending cash
+	// request. This is important - since a user can only have ONE pending cash
+	// request at a time (see cashRequest()), without a way to reject a bad one
+	// the student would be stuck forever, unable to submit a corrected request.
+	@Override
+	@Transactional
+	public Map<String, Object> rejectCashPayment(String userId) {
+	    Map<String, Object> result = new LinkedHashMap<>();
+	    try {
+	        List<Map> payments = iGenericDao.executeDDLSQL(JavaConstant.GET_LATEST_PENDING_CASH_BY_USER,
+	                new Object[] { userId });
+
+	        if (payments == null || payments.isEmpty()) {
+	            result.put("success", false);
+	            result.put("message", "No pending cash payment found");
+	            return result;
+	        }
+
+	        Object paymentId = payments.get(0).get("payment_id");
+	        iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_REJECT_CASH, new Object[] { paymentId });
+
+	        List<Map> updated = iGenericDao.executeDDLSQL(JavaConstant.GET_PAYMENT_BY_ID, new Object[] { paymentId });
+
+	        result.put("success", true);
+	        result.put("message", "Cash payment rejected");
+	        result.put("payment", updated.get(0));
+	        return result;
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	        result.put("success", false);
+	        result.put("message", "Rejection failed");
+	        return result;
+	    }
 	}
 
 	// ============ PATCH /approve/:id ============

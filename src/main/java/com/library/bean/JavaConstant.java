@@ -147,4 +147,8 @@ public class JavaConstant {
 			"insert into public_query (name, mail, subject, message) values (?1, ?2, ?3, ?4)";
 	public final static String DELETE_PUBLIC_QUERY = "delete from public_query where query_id = ?1";
 	public final static String GET_PUBLIC_QUERY_BY_ID = "select * from public_query where query_id = ?1";
+	
+	public final static String UPDATE_PAYMENT_REJECT_CASH =
+	           "update payment set status = 'rejected', is_approved_by_admin = false, " +
+	           "updated_at = CURRENT_TIMESTAMP where payment_id = ?1";
 }

@@ -132,4 +132,9 @@ public class PaymentController {
 		int httpStatus = (int) result.remove("httpStatus");
 		return ResponseEntity.status(httpStatus).body(result);
 	}
+	
+	@PatchMapping("/reject/{id}")
+	   public ResponseEntity<Map<String, Object>> reject(@PathVariable String id) {
+	       return ResponseEntity.ok(paymentService.rejectCashPayment(id));
+	   }
 }

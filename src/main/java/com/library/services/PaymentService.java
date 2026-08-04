@@ -46,4 +46,6 @@ public interface PaymentService {
 	Map<String, Object> seatsStatus(String shift);
 	
 	Map<String, Object> changeSeat(ChangeSeatRequest request);
+	
+	Map<String, Object> rejectCashPayment(String userId);
 }
