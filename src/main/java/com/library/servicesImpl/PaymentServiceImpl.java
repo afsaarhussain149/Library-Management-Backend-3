@@ -798,7 +798,7 @@ public class PaymentServiceImpl implements PaymentService {
 			}
 
 			List<Map<String, Object>> seats = new ArrayList<>();
-			for (int i = 1; i <= 69; i++) {
+			for (int i = 1; i <= 68; i++) {
 				Map<String, Object> seat = new LinkedHashMap<>();
 				seat.put("seatNo", i);
 				seat.put("status", bookedSeats.contains(i) ? "booked" : "available");

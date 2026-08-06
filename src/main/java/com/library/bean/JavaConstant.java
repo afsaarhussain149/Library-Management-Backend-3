@@ -92,15 +92,22 @@ public class JavaConstant {
 	//			"  when 'annual' then interval '365 day' " +
 	//			"  else interval '30 day' end)) < now()";
 	
+		//	public final static String EXPIRE_PLANS_JOB =
+		//		    "update payment set is_active = false, plan_expire_seat_block = true " +
+		//		    "where status = 'paid' and is_active = true and " +
+		//		    "(created_at + (case lower(plan_type) " +
+		//		    "  when 'quarterly' then interval '90 day' " +
+		//		    "  when 'half yearly' then interval '180 day' " +
+		//		    "  when 'annually' then interval '365 day' " +      
+		//		    "  else interval '30 day' end)) < now()";
+	
 	public final static String EXPIRE_PLANS_JOB =
-		    "update payment set is_active = false, plan_expire_seat_block = true " +
-		    "where status = 'paid' and is_active = true and " +
-		    "(created_at + (case lower(plan_type) " +
-		    "  when 'quarterly' then interval '90 day' " +
-		    "  when 'half yearly' then interval '180 day' " +
-		    "  when 'annually' then interval '365 day' " +        // ✅ matches frontend's 'Annually'
-		    "  else interval '30 day' end)) < now()";
+		    "update payment set is_active = false, plan_expire_seat_block = true, " +
+		    "updated_at = CURRENT_TIMESTAMP " +
+		    "where status = 'paid' and is_active = true " +
+		    "and end_plan_date is not null and end_plan_date <= CURRENT_DATE";
 
+	
 	// ===================== SEAT SELECTION =====================
 	public final static String CHECK_SEAT_TAKEN_FOR_PLAN =
 			"select * from seat_selection where plan_id = ?1 and seat_no = ?2";
