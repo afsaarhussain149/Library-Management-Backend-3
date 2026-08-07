@@ -390,11 +390,13 @@ public class PaymentServiceImpl implements PaymentService {
 				params.add("%" + phone + "%");
 			}
 			if ("active".equals(status)) {
-				where.append(" and p.is_active = true ");
+			    where.append(" and p.is_active = true ");
 			} else if ("inactive".equals(status)) {
-				where.append(" and p.is_active = false ");
+			    where.append(" and p.is_active = false ");
+			} else if ("unpaid".equals(status)) {
+			    where.append(" and (p.status is null or p.status <> 'paid') ");
 			}
-
+			
 			String baseFrom =
 				"from app_user u left join lateral (select * from payment pp where pp.user_id = CAST(u.user_id AS text) " +
 				"order by pp.created_at desc limit 1) p on true ";
@@ -515,9 +517,11 @@ public class PaymentServiceImpl implements PaymentService {
 				params.add("%" + phone + "%");
 			}
 			if ("active".equals(status)) {
-				where.append(" and p.is_active = true ");
+			    where.append(" and p.is_active = true ");
 			} else if ("inactive".equals(status)) {
-				where.append(" and p.is_active = false ");
+			    where.append(" and p.is_active = false ");
+			} else if ("unpaid".equals(status)) {
+			    where.append(" and (p.status is null or p.status <> 'paid') ");
 			}
 
 			String query =
