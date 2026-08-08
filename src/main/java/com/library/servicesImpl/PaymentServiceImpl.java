@@ -394,7 +394,7 @@ public class PaymentServiceImpl implements PaymentService {
 			} else if ("inactive".equals(status)) {
 			    where.append(" and p.is_active = false ");
 			} else if ("unpaid".equals(status)) {
-			    where.append(" and (p.status is null or p.status <> 'paid') ");
+				where.append(" and p.payment_id is null ");
 			}
 			
 			String baseFrom =
@@ -521,7 +521,7 @@ public class PaymentServiceImpl implements PaymentService {
 			} else if ("inactive".equals(status)) {
 			    where.append(" and p.is_active = false ");
 			} else if ("unpaid".equals(status)) {
-			    where.append(" and (p.status is null or p.status <> 'paid') ");
+				where.append(" and p.payment_id is null ");
 			}
 
 			String query =
