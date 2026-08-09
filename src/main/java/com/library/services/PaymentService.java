@@ -48,4 +48,6 @@ public interface PaymentService {
 	Map<String, Object> changeSeat(ChangeSeatRequest request);
 	
 	Map<String, Object> rejectCashPayment(String userId);
+	
+	Map<String, Object> seatDetails(String studentName, String phone, String seatNo, String month);
 }

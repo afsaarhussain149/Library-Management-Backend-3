@@ -447,6 +447,63 @@ public class PaymentServiceImpl implements PaymentService {
 			return result;
 		}
 	}
+	
+	// ============ GET /seat-details (with filters) ============
+	@Override
+	public Map<String, Object> seatDetails(String studentName, String phone, String seatNo, String month) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		try {
+			StringBuilder where = new StringBuilder(" where p.is_active = true and p.status = 'paid' ");
+			List<Object> params = new ArrayList<>();
+
+			if (studentName != null && !studentName.isBlank()) {
+				where.append(" and u.full_name ilike ?").append(params.size() + 1);
+				params.add("%" + studentName + "%");
+			}
+			if (phone != null && !phone.isBlank()) {
+				where.append(" and u.phone_number ilike ?").append(params.size() + 1);
+				params.add("%" + phone + "%");
+			}
+			if (seatNo != null && !seatNo.isBlank()) {
+				// seats is stored as CSV text e.g. "12,13" - wrap both
+				// sides in commas so "1" never matches inside "12"/"21".
+				where.append(" and (',' || replace(p.seats, ' ', '') || ',') like ?")
+					.append(params.size() + 1);
+				params.add("%," + seatNo.trim() + ",%");
+			}
+			if (month != null && !month.isBlank()) {
+				// Filter by the CALENDAR MONTH of end_plan_date (1-12),
+				// regardless of year - matches "month ke expire date" filter.
+				where.append(" and extract(month from p.end_plan_date) = ?")
+					.append(params.size() + 1);
+				params.add(Integer.parseInt(month));
+			}
+
+			String query =
+				"select u.user_id as student_id, u.phone_number as phone, u.full_name as student_name, " +
+				"p.seats as seat_no, p.plan_hours as plan_hours, " +
+				"case lower(p.plan_type) " +
+				"  when 'monthly' then 1 when 'quarterly' then 3 " +
+				"  when 'half yearly' then 6 when 'annually' then 12 " +
+				"  else null end as plan_months, " +
+				"p.plan_type as plan_type, p.shift_time as timing_duration, " +
+				"p.created_at as payment_date, p.end_plan_date as expire_date " +
+				"from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
+				where + " order by u.full_name asc";
+
+			List<Map> data = iGenericDao.executeDDLSQL(query, params.toArray());
+
+			result.put("success", true);
+			result.put("total", data.size());
+			result.put("data", data);
+			return result;
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("success", false);
+			result.put("message", e.getMessage());
+			return result;
+		}
+	}
 
 	// ============ POST /create-order ============
 	@Override

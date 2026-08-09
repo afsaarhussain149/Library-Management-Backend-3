@@ -137,4 +137,14 @@ public class PaymentController {
 	   public ResponseEntity<Map<String, Object>> reject(@PathVariable String id) {
 	       return ResponseEntity.ok(paymentService.rejectCashPayment(id));
 	   }
+	
+	// "Seat Details" admin page - who is sitting on which seat right now.
+	@GetMapping("/seat-details")
+	public ResponseEntity<Map<String, Object>> seatDetails(
+			@RequestParam(required = false) String studentName,
+			@RequestParam(required = false) String phone,
+			@RequestParam(required = false) String seatNo,
+			@RequestParam(required = false) String month) {
+		return ResponseEntity.ok(paymentService.seatDetails(studentName, phone, seatNo, month));
+	}
 }
