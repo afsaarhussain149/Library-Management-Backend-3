@@ -147,4 +147,14 @@ public class PaymentController {
 			@RequestParam(required = false) String month) {
 		return ResponseEntity.ok(paymentService.seatDetails(studentName, phone, seatNo, month));
 	}
+	
+	// "Fee Records" admin page - full payment/transaction history.
+	@GetMapping("/fee-records")
+	public ResponseEntity<Map<String, Object>> feeRecords(
+			@RequestParam(required = false) String studentName,
+			@RequestParam(required = false) String phone,
+			@RequestParam(required = false) String paymentMode,
+			@RequestParam(required = false) String month) {
+		return ResponseEntity.ok(paymentService.feeRecords(studentName, phone, paymentMode, month));
+	}
 }

@@ -1,21 +1,34 @@
 package com.library.servicesImpl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.library.bean.*;
-import com.library.dao.IGenericDao;
-import com.library.services.PaymentService;
-import com.library.util.ShiftTimeUtil;
-import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import com.razorpay.Order;
-import com.razorpay.RazorpayClient;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.library.bean.ChangeSeatRequest;
+import com.library.bean.JavaConstant;
+import com.library.bean.PaymentDetails;
+import com.library.bean.UpdateStatusRequest;
+import com.library.bean.VerifyPaymentRequest;
+import com.library.dao.IGenericDao;
+import com.library.services.PaymentService;
+import com.library.util.ShiftTimeUtil;
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+
+import jakarta.transaction.Transactional;
 
 @Service
 @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -953,4 +966,58 @@ public class PaymentServiceImpl implements PaymentService {
 			return result;
 		}
 	}
+	
+	// ============ GET /fee-records (with filters) ============
+	// Full fee/payment history - every successfully PAID transaction
+	// (online + cash), not just the latest/active one per user. Each
+	// payment row is its own record here, unlike seat-details or
+	// users-with-payments which only look at the latest payment per user.
+	@Override
+	public Map<String, Object> feeRecords(String studentName, String phone, String paymentMode, String month) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		try {
+			StringBuilder where = new StringBuilder(" where p.status = 'paid' ");
+			List<Object> params = new ArrayList<>();
+	 
+			if (studentName != null && !studentName.isBlank()) {
+				where.append(" and u.full_name ilike ?").append(params.size() + 1);
+				params.add("%" + studentName + "%");
+			}
+			if (phone != null && !phone.isBlank()) {
+				where.append(" and u.phone_number ilike ?").append(params.size() + 1);
+				params.add("%" + phone + "%");
+			}
+			if (paymentMode != null && !paymentMode.isBlank()) {
+				where.append(" and p.payment_mode = ?").append(params.size() + 1);
+				params.add(paymentMode);
+			}
+			if (month != null && !month.isBlank()) {
+				// Filter by the CALENDAR MONTH (1-12) the payment was
+				// made, regardless of year.
+				where.append(" and extract(month from p.created_at) = ?")
+					.append(params.size() + 1);
+				params.add(Integer.parseInt(month));
+			}
+	 
+			String query =
+				"select u.user_id as student_id, u.full_name as student_name, u.phone_number as phone, " +
+				"p.amount as amount, p.payment_mode as payment_mode, p.plan_type as plan_type, " +
+				"p.status as status, p.created_at as payment_date " +
+				"from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
+				where + " order by p.created_at desc";
+	 
+			List<Map> data = iGenericDao.executeDDLSQL(query, params.toArray());
+	 
+			result.put("success", true);
+			result.put("total", data.size());
+			result.put("data", data);
+			return result;
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("success", false);
+			result.put("message", e.getMessage());
+			return result;
+		}
+	}
+
 }

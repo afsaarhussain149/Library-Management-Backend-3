@@ -50,4 +50,7 @@ public interface PaymentService {
 	Map<String, Object> rejectCashPayment(String userId);
 	
 	Map<String, Object> seatDetails(String studentName, String phone, String seatNo, String month);
+	
+	Map<String, Object> feeRecords(String studentName, String phone, String paymentMode, String month);
+	
 }
