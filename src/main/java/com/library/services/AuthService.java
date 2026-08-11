@@ -14,6 +14,10 @@ public interface AuthService {
 	ApiResponse adminEditProfile(String phone, String name, String newPhone, String password, MultipartFile photo);
 
 	ApiResponse register(UserDetails userDetails);
+	
+	ApiResponse forgotPassword(ForgotPasswordRequest request);
+
+	ApiResponse verifyOtp(VerifyOtpRequest request);
 
 	ApiResponse resetPassword(ResetPasswordRequest request);
 

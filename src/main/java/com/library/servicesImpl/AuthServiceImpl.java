@@ -3,6 +3,7 @@ package com.library.servicesImpl;
 import com.library.bean.*;
 import com.library.dao.IGenericDao;
 import com.library.services.AuthService;
+import com.library.services.EmailService;
 import com.library.util.FileStorageUtil;
 import com.library.util.JwtUtil;
 import com.library.util.PasswordUtil;
@@ -28,6 +29,9 @@ public class AuthServiceImpl implements AuthService {
 
 	@Autowired
 	FileStorageUtil fileStorageUtil;
+	
+	@Autowired
+	EmailService emailService;
 
 	private String normalize(String v) {
 		if (v == null || v.trim().isEmpty()) return null;
@@ -190,33 +194,335 @@ public class AuthServiceImpl implements AuthService {
 			return new ApiResponse(false, "Server error: " + e.getMessage());
 		}
 	}
+	
+	// ============ FORGOT PASSWORD ============
 
+	@Override
+	@Transactional
+	public ApiResponse forgotPassword(ForgotPasswordRequest request) {
+
+	    try {
+
+	        String email = normalize(request.getEmail());
+
+	        if (email == null) {
+	            return new ApiResponse(false, "Email is required");
+	        }
+
+	        email = email.toLowerCase();
+
+	        List<Map> users = iGenericDao.executeDDLSQL(
+	                JavaConstant.GET_USER_BY_EMAIL,
+	                new Object[]{email}
+	        );
+
+	        /*
+	         * Security:
+	         */
+	        if (users == null || users.isEmpty()) {
+
+	            return new ApiResponse(
+	                    true,
+	                    "If this email is registered, an OTP has been sent"
+	            );
+	        }
+
+	        Map user = users.get(0);
+
+	        Integer userId = ((Number) user.get("user_id")).intValue();
+
+	        String userName = user.get("full_name") != null
+	                ? String.valueOf(user.get("full_name"))
+	                : "User";
+
+	        // Remove all previous OTPs
+	        iGenericDao.executeDMLSQL(
+	                JavaConstant.DELETE_OLD_PASSWORD_OTPS,
+	                new Object[]{email}
+	        );
+
+	        // Generate new OTP
+	        String otp = generateOtp();
+
+	        // Hash OTP before storing
+	        String otpHash = passwordUtil.hash(otp);
+
+	        // OTP valid for 5 minutes
+	        java.sql.Timestamp expiresAt =
+	                new java.sql.Timestamp(
+	                        System.currentTimeMillis() + (5 * 60 * 1000)
+	                );
+
+	        iGenericDao.executeDMLSQL(
+	                JavaConstant.INSERT_PASSWORD_RESET_OTP,
+	                new Object[]{
+	                        userId,
+	                        email,
+	                        otpHash,
+	                        expiresAt
+	                }
+	        );
+
+	        // Send OTP email
+	        emailService.sendOtpEmail(
+	                email,
+	                userName,
+	                otp
+	        );
+
+	        return new ApiResponse(
+	                true,
+	                "If this email is registered, an OTP has been sent"
+	        );
+
+	    } catch (Exception e) {
+
+	        e.printStackTrace();
+
+	        return new ApiResponse(
+	                false,
+	                "Unable to process password reset request"
+	        );
+	    }
+	}
+
+	@Override
+	@Transactional
+	public ApiResponse verifyOtp(VerifyOtpRequest request) {
+
+	    try {
+
+	        String email = normalize(request.getEmail());
+	        String otp = normalize(request.getOtp());
+
+	        if (email == null || otp == null) {
+	            return new ApiResponse(
+	                    false,
+	                    "Email and OTP are required"
+	            );
+	        }
+
+	        email = email.toLowerCase();
+
+	        if (!otp.matches("\\d{6}")) {
+	            return new ApiResponse(
+	                    false,
+	                    "Invalid OTP format"
+	            );
+	        }
+
+	        List<Map> otpRecords =
+	                iGenericDao.executeDDLSQL(
+	                        JavaConstant.GET_LATEST_PASSWORD_RESET_OTP,
+	                        new Object[]{email}
+	                );
+
+	        if (otpRecords == null || otpRecords.isEmpty()) {
+
+	            return new ApiResponse(
+	                    false,
+	                    "OTP not found or expired"
+	            );
+	        }
+
+	        Map otpRecord = otpRecords.get(0);
+
+	        Integer otpId =
+	                ((Number) otpRecord.get("id")).intValue();
+
+	        int attempts =
+	                otpRecord.get("attempts") == null
+	                        ? 0
+	                        : ((Number) otpRecord.get("attempts")).intValue();
+
+	        Boolean used =
+	                otpRecord.get("used") != null
+	                        && (Boolean) otpRecord.get("used");
+
+	        Boolean verified =
+	                otpRecord.get("verified") != null
+	                        && (Boolean) otpRecord.get("verified");
+
+	        if (used) {
+
+	            return new ApiResponse(
+	                    false,
+	                    "OTP has already been used"
+	            );
+	        }
+
+	        if (verified) {
+
+	            return new ApiResponse(
+	                    true,
+	                    "OTP already verified"
+	            );
+	        }
+
+	        // Maximum 5 wrong attempts
+	        if (attempts >= 5) {
+
+	            return new ApiResponse(
+	                    false,
+	                    "Too many incorrect attempts. Please request a new OTP"
+	            );
+	        }
+
+	        String storedOtpHash =
+	                String.valueOf(otpRecord.get("otp_hash"));
+
+	        boolean matches =
+	                passwordUtil.matches(
+	                        otp,
+	                        storedOtpHash
+	                );
+
+	        if (!matches) {
+
+	            iGenericDao.executeDMLSQL(
+	                    JavaConstant.UPDATE_OTP_ATTEMPTS,
+	                    new Object[]{otpId}
+	            );
+
+	            return new ApiResponse(
+	                    false,
+	                    "Invalid OTP"
+	            );
+	        }
+
+	        iGenericDao.executeDMLSQL(
+	                JavaConstant.UPDATE_OTP_VERIFIED,
+	                new Object[]{otpId}
+	        );
+
+	        return new ApiResponse(
+	                true,
+	                "OTP verified successfully"
+	        );
+
+	    } catch (Exception e) {
+
+	        e.printStackTrace();
+
+	        return new ApiResponse(
+	                false,
+	                "Unable to verify OTP"
+	        );
+	    }
+	}
+	
 	// ============ RESET PASSWORD ============
+
 	@Override
 	@Transactional
 	public ApiResponse resetPassword(ResetPasswordRequest request) {
-		try {
-			String phoneNumber = normalize(request.getPhoneNumber());
-			String newPassword = normalize(request.getNewPassword());
 
-			if (phoneNumber == null || newPassword == null) {
-				return new ApiResponse(false, "Phone number & new password required");
-			}
+	    try {
 
-			List<Map> user = iGenericDao.executeDDLSQL(JavaConstant.GET_USER_BY_PHONE, new Object[] { phoneNumber });
-			if (user == null || user.isEmpty()) {
-				return new ApiResponse(false, "User not found");
-			}
+	        String email = normalize(request.getEmail());
+	        String newPassword = normalize(request.getNewPassword());
 
-			String hashedPassword = passwordUtil.hash(newPassword);
-			iGenericDao.executeDMLSQL(JavaConstant.UPDATE_USER_PASSWORD_BY_PHONE,
-					new Object[] { hashedPassword, phoneNumber });
+	        if (email == null || newPassword == null) {
 
-			return new ApiResponse(true, "Password updated successfully");
-		} catch (Exception e) {
-			e.printStackTrace();
-			return new ApiResponse(false, "Server error: " + e.getMessage());
-		}
+	            return new ApiResponse(
+	                    false,
+	                    "Email and new password are required"
+	            );
+	        }
+
+	        email = email.toLowerCase();
+
+	        // Basic password validation
+	        if (newPassword.length() < 6) {
+
+	            return new ApiResponse(
+	                    false,
+	                    "Password must be at least 6 characters"
+	            );
+	        }
+
+	        /*
+	         * Only OTP verified within last 5 minutes
+	         * can reset password.
+	         */
+	        List<Map> otpRecords =
+	                iGenericDao.executeDDLSQL(
+	                        JavaConstant.GET_VERIFIED_OTP,
+	                        new Object[]{email}
+	                );
+
+	        if (otpRecords == null || otpRecords.isEmpty()) {
+
+	            return new ApiResponse(
+	                    false,
+	                    "OTP verification required or OTP expired"
+	            );
+	        }
+
+	        Map otpRecord = otpRecords.get(0);
+
+	        Integer otpId =
+	                ((Number) otpRecord.get("id")).intValue();
+
+	        // Find user
+	        List<Map> users =
+	                iGenericDao.executeDDLSQL(
+	                        JavaConstant.GET_USER_BY_EMAIL,
+	                        new Object[]{email}
+	                );
+
+	        if (users == null || users.isEmpty()) {
+
+	            return new ApiResponse(
+	                    false,
+	                    "Unable to reset password"
+	            );
+	        }
+
+	        // Hash new password
+	        String hashedPassword =
+	                passwordUtil.hash(newPassword);
+
+	        Integer userId =
+	                ((Number) users.get(0).get("user_id")).intValue();
+
+	        /*
+	         * Password update using user ID
+	         * instead of trusting phone number.
+	         */
+	        String updatePasswordSql =
+	                "update app_user " +
+	                "set password = ?1, updated_at = CURRENT_TIMESTAMP " +
+	                "where user_id = ?2";
+
+	        iGenericDao.executeDMLSQL(
+	                updatePasswordSql,
+	                new Object[]{
+	                        hashedPassword,
+	                        userId
+	                }
+	        );
+
+	        // OTP can never be used again
+	        iGenericDao.executeDMLSQL(
+	                JavaConstant.MARK_OTP_USED,
+	                new Object[]{otpId}
+	        );
+
+	        return new ApiResponse(
+	                true,
+	                "Password reset successfully"
+	        );
+
+	    } catch (Exception e) {
+
+	        e.printStackTrace();
+
+	        return new ApiResponse(
+	                false,
+	                "Unable to reset password"
+	        );
+	    }
 	}
 
 	// ============ UNPAID USER ============
@@ -508,5 +814,11 @@ public class AuthServiceImpl implements AuthService {
 	    m.put("gender", "gender");
 	    m.put("aadh", "aadhar_number");
 		return m;
+	}
+	
+	private String generateOtp() {
+	    return String.valueOf(
+	            100000 + new Random().nextInt(900000)
+	    );
 	}
 }

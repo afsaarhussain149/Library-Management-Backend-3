@@ -67,6 +67,35 @@ public class AuthController {
 		return ResponseEntity.status(status).body(response);
 	}
 
+	// POST /forgot-password
+	@PostMapping("/forgot-password")
+	public ResponseEntity<ApiResponse> forgotPassword(
+	        @RequestBody ForgotPasswordRequest request) {
+
+	    ApiResponse response =
+	            authService.forgotPassword(request);
+
+	    return ResponseEntity.ok(response);
+	}
+	
+	// POST /verify-otp
+	@PostMapping("/verify-otp")
+	public ResponseEntity<ApiResponse> verifyOtp(
+	        @RequestBody VerifyOtpRequest request) {
+
+	    ApiResponse response =
+	            authService.verifyOtp(request);
+
+	    HttpStatus status =
+	            response.isSuccess()
+	                    ? HttpStatus.OK
+	                    : HttpStatus.BAD_REQUEST;
+
+	    return ResponseEntity
+	            .status(status)
+	            .body(response);
+	}
+	
 	// POST /reset-password
 	@PostMapping("/reset-password")
 	public ResponseEntity<ApiResponse> resetPassword(@RequestBody ResetPasswordRequest request) {

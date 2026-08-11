@@ -49,7 +49,7 @@ public class JavaConstant {
 			"update payment set is_active = ?1, updated_at = CURRENT_TIMESTAMP where payment_id = ?2";
 	public final static String UPDATE_PAYMENT_DEACTIVATE_AND_EXPIRE =
 	        "update payment set is_active = false, seats = null, shift_label = null, shift_time = null, " +
-	        "plan_hours = null, plan_expire_seat_block = true, " +
+	        "plan_hours = null, plan_expire_seat_block = true, status = 'expired' " + 
 	        "end_plan_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP where payment_id = ?1";
 	public final static String GET_PAYMENT_BY_ORDER_ID =
 			"select * from payment where razorpay_order_id = ?1";
@@ -158,4 +158,42 @@ public class JavaConstant {
 	public final static String UPDATE_PAYMENT_REJECT_CASH =
 	           "update payment set status = 'rejected', is_approved_by_admin = false, " +
 	           "updated_at = CURRENT_TIMESTAMP where payment_id = ?1";
+	
+	// ===================== PASSWORD RESET OTP =====================
+
+	public static final String DELETE_OLD_PASSWORD_OTPS =
+	        "delete from password_reset_otp where email = ?1";
+
+	public static final String INSERT_PASSWORD_RESET_OTP =
+	        "insert into password_reset_otp " +
+	        "(user_id, email, otp_hash, expires_at, attempts, verified, used) " +
+	        "values (?1, ?2, ?3, ?4, 0, false, false)";
+
+	public static final String GET_LATEST_PASSWORD_RESET_OTP =
+	        "select * from password_reset_otp " +
+	        "where email = ?1 " +
+	        "order by created_at desc limit 1";
+
+	public static final String UPDATE_OTP_VERIFIED =
+	        "update password_reset_otp " +
+	        "set verified = true " +
+	        "where id = ?1";
+
+	public static final String MARK_OTP_USED =
+	        "update password_reset_otp " +
+	        "set used = true " +
+	        "where id = ?1";
+
+	public static final String UPDATE_OTP_ATTEMPTS =
+	        "update password_reset_otp " +
+	        "set attempts = attempts + 1 " +
+	        "where id = ?1";
+
+	public static final String GET_VERIFIED_OTP =
+	        "select * from password_reset_otp " +
+	        "where email = ?1 " +
+	        "and verified = true " +
+	        "and used = false " +
+	        "and expires_at > CURRENT_TIMESTAMP " +
+	        "order by created_at desc limit 1";
 }
