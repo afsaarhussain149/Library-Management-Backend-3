@@ -1019,5 +1019,67 @@ public class PaymentServiceImpl implements PaymentService {
 			return result;
 		}
 	}
+	
+	// ============ GET /seats/overview (Admin dashboard) ============
+	 	// For every seat 1-68: list of active bookings (student  time slot).
+	 	// Empty list = seat is fully free all day.
+	 	@Override
+	 	public Map<String, Object> seatsOverview() {
+	 		Map<String, Object> result = new LinkedHashMap<>();
+	 		try {
+	 			List<Map> bookings = iGenericDao.executeDDLSQL(
+	 					JavaConstant.GET_ACTIVE_BOOKINGS_WITH_STUDENT, new Object[] {});
+	 
+	 			// seatNo -> list of {studentName, phone, shiftTime, endPlanDate}
+	 			Map<Integer, List<Map<String, Object>>> seatBookings = new LinkedHashMap<>();
+	 			for (int i = 1; i <= 68; i++) {
+	 				seatBookings.put(i, new ArrayList<>());
+	 			}
+	 
+	 			for (Map b : bookings) {
+	 				List<Integer> seatNos = stringToSeats(b.get("seats"));
+	 				for (Integer seatNo : seatNos) {
+	 					if (seatNo < 1 || seatNo > 68) continue;
+	 					Map<String, Object> entry = new LinkedHashMap<>();
+	 					entry.put("studentName", b.get("student_name"));
+	 					entry.put("phone", b.get("phone"));
+	 					entry.put("shiftTime", b.get("shift_time"));
+	 					entry.put("endPlanDate", b.get("end_plan_date"));
+	 					seatBookings.get(seatNo).add(entry);
+	 				}
+	 			}
+	 
+	 			List<Map<String, Object>> seats = new ArrayList<>();
+	 			int occupiedCount = 0;
+	 			for (int i = 1; i <= 68; i++) {
+	 				List<Map<String, Object>> bookingsForSeat = seatBookings.get(i);
+	 				Map<String, Object> seat = new LinkedHashMap<>();
+	 				seat.put("seatNo", i);
+	 				seat.put("status", bookingsForSeat.isEmpty() ? "available" : "booked");
+	 				seat.put("bookings", bookingsForSeat);
+	 				seats.add(seat);
+	 				if (!bookingsForSeat.isEmpty()) occupiedCount++;
+	 			}
+	 
+	 			Map<String, Object> summary = new LinkedHashMap<>();
+	 			summary.put("totalSeats", 68);
+	 			summary.put("bookedSeatsCount", occupiedCount);
+	 			summary.put("availableSeatsCount", 68 - occupiedCount);
+	 			summary.put("totalActiveBookings", bookings.size());
+	 
+	 			result.put("httpStatus", 200);
+	 			result.put("success", true);
+	 			result.put("summary", summary);
+	 			result.put("seats", seats);
+	 			return result;
+	 		} catch (Exception e) {
+	 			e.printStackTrace();
+	 			result.put("httpStatus", 500);
+	 			result.put("success", false);
+	 			result.put("message", e.getMessage());
+	 			return result;
+	 		}
+	 	}
+	 
 
 }

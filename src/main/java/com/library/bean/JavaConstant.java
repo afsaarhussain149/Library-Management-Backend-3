@@ -196,4 +196,10 @@ public class JavaConstant {
 	        "and used = false " +
 	        "and expires_at > CURRENT_TIMESTAMP " +
 	        "order by created_at desc limit 1";
+	
+	public final static String GET_ACTIVE_BOOKINGS_WITH_STUDENT =
+			     "select p.seats as seats, p.shift_time as shift_time, p.end_plan_date as end_plan_date, " +
+			     "u.full_name as student_name, u.phone_number as phone " +
+			     "from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
+			     "where p.status = 'paid' and p.is_active = true";
 }

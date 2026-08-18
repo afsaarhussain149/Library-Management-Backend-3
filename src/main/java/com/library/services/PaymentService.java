@@ -53,4 +53,5 @@ public interface PaymentService {
 	
 	Map<String, Object> feeRecords(String studentName, String phone, String paymentMode, String month);
 	
+	Map<String, Object> seatsOverview();
 }

@@ -157,4 +157,13 @@ public class PaymentController {
 			@RequestParam(required = false) String month) {
 		return ResponseEntity.ok(paymentService.feeRecords(studentName, phone, paymentMode, month));
 	}
+	
+	// Admin dashboard: full seat map (1-68) with who's booked, at what
+	// time, plus booked/available counts.
+	@GetMapping("/seats/overview")
+	public ResponseEntity<Map<String, Object>> seatsOverview() {
+	 	Map<String, Object> result = paymentService.seatsOverview();
+	 	int httpStatus = (int) result.remove("httpStatus");
+		return ResponseEntity.status(httpStatus).body(result);
+	}
 }
