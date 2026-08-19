@@ -154,8 +154,11 @@ public class PaymentController {
 			@RequestParam(required = false) String studentName,
 			@RequestParam(required = false) String phone,
 			@RequestParam(required = false) String paymentMode,
-			@RequestParam(required = false) String month) {
-		return ResponseEntity.ok(paymentService.feeRecords(studentName, phone, paymentMode, month));
+			@RequestParam(required = false) String month,
+			@RequestParam(required = false) String expireMonth,
+			@RequestParam(required = false) String expireYear,
+			@RequestParam(defaultValue = "1") int page) {
+		return ResponseEntity.ok(paymentService.feeRecords(studentName, phone, paymentMode, month, expireMonth, expireYear, page));
 	}
 	
 	// Admin dashboard: full seat map (1-68) with who's booked, at what

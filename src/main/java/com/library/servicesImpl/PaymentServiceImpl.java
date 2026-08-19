@@ -973,12 +973,13 @@ public class PaymentServiceImpl implements PaymentService {
 	// payment row is its own record here, unlike seat-details or
 	// users-with-payments which only look at the latest payment per user.
 	@Override
-	public Map<String, Object> feeRecords(String studentName, String phone, String paymentMode, String month) {
+	public Map<String, Object> feeRecords(String studentName, String phone, String paymentMode, String month,
+			String expireMonth, String expireYear, int page) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		try {
 			StringBuilder where = new StringBuilder(" where p.status = 'paid' ");
 			List<Object> params = new ArrayList<>();
-	 
+
 			if (studentName != null && !studentName.isBlank()) {
 				where.append(" and u.full_name ilike ?").append(params.size() + 1);
 				params.add("%" + studentName + "%");
@@ -998,18 +999,47 @@ public class PaymentServiceImpl implements PaymentService {
 					.append(params.size() + 1);
 				params.add(Integer.parseInt(month));
 			}
-	 
+			if (expireMonth != null && !expireMonth.isBlank()) {
+				// Filter by the CALENDAR MONTH (1-12) the plan expires.
+				where.append(" and extract(month from p.end_plan_date) = ?")
+					.append(params.size() + 1);
+				params.add(Integer.parseInt(expireMonth));
+			}
+			if (expireYear != null && !expireYear.isBlank()) {
+				where.append(" and extract(year from p.end_plan_date) = ?")
+					.append(params.size() + 1);
+				params.add(Integer.parseInt(expireYear));
+			}
+
+			// ---- total count (for pagination) using the SAME filters ----
+			String countQuery =
+				"select count(*) from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " + where;
+			List<Map> countRows = iGenericDao.executeDDLSQL(countQuery, params.toArray());
+			long total = ((Number) countRows.get(0).values().iterator().next()).longValue();
+
+			int limit = getPageLimit();
+			int safePage = Math.max(page, 1);
+			int offset = (safePage - 1) * limit;
+
+			List<Object> dataParams = new ArrayList<>(params);
+			dataParams.add(limit);
+			dataParams.add(offset);
+
 			String query =
 				"select u.user_id as student_id, u.full_name as student_name, u.phone_number as phone, " +
 				"p.amount as amount, p.payment_mode as payment_mode, p.plan_type as plan_type, " +
-				"p.status as status, p.created_at as payment_date " +
+				"p.status as status, p.created_at as payment_date, p.end_plan_date as expire_date " +
 				"from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
-				where + " order by p.created_at desc";
-	 
-			List<Map> data = iGenericDao.executeDDLSQL(query, params.toArray());
-	 
+				where + " order by p.created_at desc limit ?" + (dataParams.size() - 1) +
+				" offset ?" + dataParams.size();
+
+			List<Map> data = iGenericDao.executeDDLSQL(query, dataParams.toArray());
+
 			result.put("success", true);
-			result.put("total", data.size());
+			result.put("page", safePage);
+			result.put("perPage", limit);
+			result.put("total", total);
+			result.put("totalPages", (int) Math.ceil((double) total / limit));
 			result.put("data", data);
 			return result;
 		} catch (Exception e) {
