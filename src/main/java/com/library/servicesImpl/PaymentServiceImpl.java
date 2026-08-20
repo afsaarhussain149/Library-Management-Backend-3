@@ -735,17 +735,29 @@ public class PaymentServiceImpl implements PaymentService {
 	public Map<String, Object> paymentsByUser(String userId) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		List<Map> payments = iGenericDao.executeDDLSQL(JavaConstant.GET_PAYMENTS_BY_USER_ID, new Object[] { userId });
+		
+		// The student's original joining date - renewals anchor their
+	 	// new expiry date's DAY-OF-MONTH to this.
+	 	Object joiningDate = null;
+	 	try {
+	 		List<Map> userRows = iGenericDao.executeDDLSQL(JavaConstant.GET_USER_BY_USER_ID, new Object[] { userId });
+	 		if (!userRows.isEmpty()) {
+	 			joiningDate = userRows.get(0).get("created_at");
+	 		}
+	 	} catch (Exception ignored) { }
 
 		if (payments == null || payments.isEmpty()) {
 			result.put("success", true);
 			result.put("count", 0);
 			result.put("data", new ArrayList<>());
+			result.put("joiningDate", joiningDate);
 			return result;
 		}
 
 		result.put("success", true);
 		result.put("count", payments.size());
 		result.put("data", payments);
+		result.put("joiningDate", joiningDate);
 		return result;
 	}
 
