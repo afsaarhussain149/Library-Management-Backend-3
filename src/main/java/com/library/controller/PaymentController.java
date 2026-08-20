@@ -119,8 +119,8 @@ public class PaymentController {
 	}
 
 	@GetMapping("/seats/status")
-	public ResponseEntity<Map<String, Object>> seatsStatus(@RequestParam String shift) {
-		Map<String, Object> result = paymentService.seatsStatus(shift);
+	public ResponseEntity<Map<String, Object>> seatsStatus(@RequestParam String shift, @RequestParam(required = false) String userId) {
+		Map<String, Object> result = paymentService.seatsStatus(shift, userId);
 		int httpStatus = (int) result.remove("httpStatus");
 		return ResponseEntity.status(httpStatus).body(result);
 	}

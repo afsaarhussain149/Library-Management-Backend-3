@@ -43,7 +43,7 @@ public interface PaymentService {
 
 	Map<String, Object> setAllActive();
 
-	Map<String, Object> seatsStatus(String shift);
+	Map<String, Object> seatsStatus(String shift, String userId);
 	
 	Map<String, Object> changeSeat(ChangeSeatRequest request);
 	

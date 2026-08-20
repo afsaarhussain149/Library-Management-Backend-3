@@ -845,7 +845,7 @@ public class PaymentServiceImpl implements PaymentService {
 
 	// ============ GET /seats/status ============
 	@Override
-	public Map<String, Object> seatsStatus(String shift) {
+	public Map<String, Object> seatsStatus(String shift, String userId) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		try {
 			if (shift == null) {
@@ -853,11 +853,17 @@ public class PaymentServiceImpl implements PaymentService {
 				result.put("message", "Shift required");
 				return result;
 			}
+			
+			Integer myUserId = null;
+	 		if (userId != null && !userId.isBlank()) {
+	 			try { myUserId = Integer.parseInt(userId); } catch (Exception ignored) { }
+	 		}
 
 			ShiftTimeUtil.Range requested = ShiftTimeUtil.parseShift(shift);
 			List<Map> payments = iGenericDao.executeDDLSQL(JavaConstant.GET_ALL_PAID_PAYMENTS, new Object[] {});
 
 			Set<Integer> bookedSeats = new HashSet<>();
+			Set<Integer> myCurrentSeats = new HashSet<>();
 			for (Map p : payments) {
 				Boolean isActive = (Boolean) p.get("is_active");
 				if (!Boolean.TRUE.equals(isActive)) continue;
@@ -866,7 +872,19 @@ public class PaymentServiceImpl implements PaymentService {
 				if (shiftTime == null || seats.isEmpty()) continue;
 
 				ShiftTimeUtil.Range existing = ShiftTimeUtil.parseShift(shiftTime);
-				if (ShiftTimeUtil.isOverlap(existing, requested)) {
+//				if (ShiftTimeUtil.isOverlap(existing, requested)) {
+//					bookedSeats.addAll(seats);
+//				}
+				
+				if (!ShiftTimeUtil.isOverlap(existing, requested)) continue;
+
+	 			Object uidObj = p.get("user_id");
+	 			boolean isMine = myUserId != null && uidObj != null
+	 					&& String.valueOf(uidObj).equals(String.valueOf(myUserId));
+
+	 			if (isMine) {
+	 				myCurrentSeats.addAll(seats);
+	 			} else {
 					bookedSeats.addAll(seats);
 				}
 			}
@@ -882,6 +900,7 @@ public class PaymentServiceImpl implements PaymentService {
 			result.put("httpStatus", 200);
 			result.put("success", true);
 			result.put("seats", seats);
+			result.put("currentSeats", new ArrayList<>(myCurrentSeats));
 			return result;
 		} catch (Exception e) {
 			e.printStackTrace();
