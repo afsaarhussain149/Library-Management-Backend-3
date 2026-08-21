@@ -740,7 +740,9 @@ public class PaymentServiceImpl implements PaymentService {
 	 	// new expiry date's DAY-OF-MONTH to this.
 	 	Object joiningDate = null;
 	 	try {
-	 		List<Map> userRows = iGenericDao.executeDDLSQL(JavaConstant.GET_USER_BY_USER_ID, new Object[] { userId });
+//	 		List<Map> userRows = iGenericDao.executeDDLSQL(JavaConstant.GET_USER_BY_USER_ID, new Object[] { userId });
+	 		Integer userIdInt = Integer.valueOf(userId.trim());
+	 		List<Map> userRows = iGenericDao.executeDDLSQL(JavaConstant.GET_USER_BY_USER_ID, new Object[] { userIdInt });
 	 		if (!userRows.isEmpty()) {
 	 			joiningDate = userRows.get(0).get("created_at");
 	 		}
