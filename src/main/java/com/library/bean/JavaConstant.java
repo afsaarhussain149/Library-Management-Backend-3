@@ -49,7 +49,7 @@ public class JavaConstant {
 			"update payment set is_active = ?1, updated_at = CURRENT_TIMESTAMP where payment_id = ?2";
 	public final static String UPDATE_PAYMENT_DEACTIVATE_AND_EXPIRE =
 	        "update payment set is_active = false, seats = null, shift_label = null, shift_time = null, " +
-	        "plan_hours = null, plan_expire_seat_block = true, status = 'expired' " + 
+	        "plan_hours = null, plan_expire_seat_block = true, status = 'expired', " + 
 	        "end_plan_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP where payment_id = ?1";
 	public final static String GET_PAYMENT_BY_ORDER_ID =
 			"select * from payment where razorpay_order_id = ?1";
