@@ -1,46 +1,71 @@
 package com.library.util;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.UUID;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-/**
- * Equivalent of Node's multer + multer-storage-cloudinary combo, but stores
- * files on local disk under `file.upload-dir` (served back from /uploads/**,
- * see WebConfig). Swap this out for a Cloudinary/S3 client for production use.
- */
 @Component
 public class FileStorageUtil {
 
-	@Value("${file.upload-dir}")
-	private String uploadDir;
+	@Value("${cloudinary.cloud-name}")
+	private String cloudName;
 
+	@Value("${cloudinary.api-key}")
+	private String apiKey;
+
+	@Value("${cloudinary.api-secret}")
+	private String apiSecret;
+
+	private Cloudinary cloudinary;
+
+	private Cloudinary cloudinary() {
+		if (cloudinary == null) {
+			cloudinary = new Cloudinary(ObjectUtils.asMap(
+					"cloud_name", cloudName,
+					"api_key", apiKey,
+					"api_secret", apiSecret,
+					"secure", true));
+		}
+		return cloudinary;
+	}
+
+	@SuppressWarnings("unchecked")
 	public String store(MultipartFile file) {
 		if (file == null || file.isEmpty()) {
 			return null;
 		}
 		try {
-			Path dir = Paths.get(uploadDir).toAbsolutePath().normalize();
-			Files.createDirectories(dir);
-
-			String original = file.getOriginalFilename() == null ? "file" : file.getOriginalFilename();
-			String ext = "";
-			int dot = original.lastIndexOf('.');
-			if (dot >= 0) ext = original.substring(dot);
-
-			String fileName = UUID.randomUUID() + ext;
-			Path target = dir.resolve(fileName);
-			Files.copy(file.getInputStream(), target);
-
-			return "/uploads/" + fileName;
-		} catch (IOException e) {
+			Map<String, Object> result = cloudinary().uploader().upload(
+					file.getBytes(),
+					ObjectUtils.asMap("folder", "library-students"));
+			return (String) result.get("secure_url");
+		} catch (Exception e) {
 			throw new RuntimeException("File upload failed: " + e.getMessage(), e);
 		}
+	}
+
+	public void delete(String url) {
+		if (url == null || url.isBlank() || !url.contains("res.cloudinary.com")) {
+			return;
+		}
+		try {
+			String publicId = extractPublicId(url);
+			if (publicId != null) {
+				cloudinary().uploader().destroy(publicId, ObjectUtils.emptyMap());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private String extractPublicId(String url) {
+		Matcher matcher = Pattern.compile("/upload/(?:v\\d+/)?(.+)\\.[a-zA-Z0-9]+(?:\\?.*)?$").matcher(url);
+		return matcher.find() ? matcher.group(1) : null;
 	}
 }

@@ -159,6 +159,15 @@ public class AuthController {
 		HttpStatus status = response.isSuccess() ? HttpStatus.OK : HttpStatus.NOT_FOUND;
 		return ResponseEntity.status(status).body(response);
 	}
+
+	// DELETE /user/remove-photo/{userId} - permanently deletes the student's
+	// saved profile photo (both from Cloudinary and the app_user.photo column).
+	@DeleteMapping("/user/remove-photo/{userId}")
+	public ResponseEntity<ApiResponse> removePhoto(@PathVariable Integer userId) {
+		ApiResponse response = authService.removePhoto(userId);
+		HttpStatus status = response.isSuccess() ? HttpStatus.OK : HttpStatus.NOT_FOUND;
+		return ResponseEntity.status(status).body(response);
+	}
 	
 	@GetMapping("/all-users")
 	public ResponseEntity<Map<String, Object>> getAllUsers(

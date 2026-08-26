@@ -31,5 +31,7 @@ public interface AuthService {
 
 	ApiResponse editProfile(Integer userId, Map<String, Object> fields, MultipartFile photo);
 	
+	ApiResponse removePhoto(Integer userId);
+	
 	Map<String, Object> getAllUsers(String fullName, String phone, String userId);
 }

@@ -132,6 +132,9 @@ public class AuthServiceImpl implements AuthService {
 				return new ApiResponse(false, "Admin not found");
 			}
 
+			Object oldImageObj = existing.get(0).get("image");
+			String oldImage = oldImageObj != null ? oldImageObj.toString() : null;
+			
 			List<String> setClauses = new ArrayList<>();
 			List<Object> values = new ArrayList<>();
 
@@ -159,6 +162,10 @@ public class AuthServiceImpl implements AuthService {
 
 			String query = "update admin_user set " + String.join(", ", setClauses) + " where phone = ?" + whereIndex;
 			iGenericDao.executeDMLSQL(query, values.toArray());
+
+			if (imagePath != null) {
+				fileStorageUtil.delete(oldImage);
+			}
 
 			return new ApiResponse(true, "Profile updated successfully");
 		} catch (Exception e) {
@@ -650,6 +657,8 @@ public class AuthServiceImpl implements AuthService {
 			if (existing == null || existing.isEmpty()) {
 				return new ApiResponse(false, "User not found");
 			}
+			Object oldPhotoObj = existing.get(0).get("photo");
+			String oldPhoto = oldPhotoObj != null ? oldPhotoObj.toString() : null;
 
 			List<String> setClauses = new ArrayList<>();
 			List<Object> values = new ArrayList<>();
@@ -688,6 +697,10 @@ public class AuthServiceImpl implements AuthService {
 			String query = "update app_user set " + String.join(", ", setClauses) + " where phone_number = ?" + whereIndex;
 			iGenericDao.executeDMLSQL(query, values.toArray());
 
+			if (imagePath != null) {
+				fileStorageUtil.delete(oldPhoto);
+			}
+
 			return new ApiResponse(true, "Profile updated successfully");
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -708,6 +721,8 @@ public class AuthServiceImpl implements AuthService {
 			if (existing == null || existing.isEmpty()) {
 				return new ApiResponse(false, "User not found");
 			}
+			Object oldPhotoObj = existing.get(0).get("photo");
+			String oldPhoto = oldPhotoObj != null ? oldPhotoObj.toString() : null;
 
 			List<String> setClauses = new ArrayList<>();
 			List<Object> values = new ArrayList<>();
@@ -748,12 +763,51 @@ public class AuthServiceImpl implements AuthService {
 			String query = "update app_user set " + String.join(", ", setClauses) + " where user_id = ?" + whereIndex;
 			iGenericDao.executeDMLSQL(query, values.toArray());
 
+			if (imagePath != null) {
+				fileStorageUtil.delete(oldPhoto);
+			}
+
 			return new ApiResponse(true, "Profile updated successfully");
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new ApiResponse(false, "Server error: " + e.getMessage());
 		}
 	}
+
+	// ============ REMOVE PHOTO (permanently) ============
+	@Override
+	@Transactional
+	public ApiResponse removePhoto(Integer userId) {
+		try {
+			if (userId == null) {
+				return new ApiResponse(false, "User ID required");
+			}
+
+			List<Map> existing = iGenericDao.executeDDLSQL(JavaConstant.GET_USER_BY_USER_ID, new Object[] { userId });
+			if (existing == null || existing.isEmpty()) {
+				return new ApiResponse(false, "User not found");
+			}
+
+			Object oldPhotoObj = existing.get(0).get("photo");
+			String oldPhoto = oldPhotoObj != null ? oldPhotoObj.toString() : null;
+
+			if (oldPhoto == null || oldPhoto.isBlank()) {
+				return new ApiResponse(true, "No photo to remove");
+			}
+
+			iGenericDao.executeDMLSQL(
+					"update app_user set photo = null, updated_at = CURRENT_TIMESTAMP where user_id = ?1",
+					new Object[] { userId });
+
+			fileStorageUtil.delete(oldPhoto);
+
+			return new ApiResponse(true, "Photo removed successfully");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new ApiResponse(false, "Server error: " + e.getMessage());
+		}
+	}
+
 	
 	@Override
 	public Map<String, Object> getAllUsers(String fullName, String phone, String userId) {
