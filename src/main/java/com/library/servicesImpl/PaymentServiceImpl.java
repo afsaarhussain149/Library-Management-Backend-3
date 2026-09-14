@@ -502,7 +502,7 @@ public class PaymentServiceImpl implements PaymentService {
 				"p.plan_type as plan_type, p.shift_time as timing_duration, " +
 				"p.created_at as payment_date, p.end_plan_date as expire_date " +
 				"from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
-				where + " order by u.full_name asc";
+				where + " order by p.end_plan_date asc";
 
 			List<Map> data = iGenericDao.executeDDLSQL(query, params.toArray());
 
@@ -1063,7 +1063,7 @@ public class PaymentServiceImpl implements PaymentService {
 				"p.amount as amount, p.payment_mode as payment_mode, p.plan_type as plan_type, " +
 				"p.status as status, p.created_at as payment_date, p.end_plan_date as expire_date " +
 				"from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
-				where + " order by p.created_at desc limit ?" + (dataParams.size() - 1) +
+				where + " order by p.end_plan_date asc limit ?" + (dataParams.size() - 1) +
 				" offset ?" + dataParams.size();
 
 			List<Map> data = iGenericDao.executeDDLSQL(query, dataParams.toArray());
