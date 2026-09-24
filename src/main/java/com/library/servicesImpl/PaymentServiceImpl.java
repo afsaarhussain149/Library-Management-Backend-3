@@ -502,7 +502,7 @@ public class PaymentServiceImpl implements PaymentService {
 				"p.plan_type as plan_type, p.shift_time as timing_duration, " +
 				"p.created_at as payment_date, p.end_plan_date as expire_date " +
 				"from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
-				where + " order by p.seats asc";
+				where + " order by NULLIF(split_part(p.seats, ',', 1), '')::integer asc nulls last, p.end_plan_date asc";
 
 			List<Map> data = iGenericDao.executeDDLSQL(query, params.toArray());
 
