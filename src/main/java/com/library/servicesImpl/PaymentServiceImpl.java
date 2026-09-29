@@ -1005,12 +1005,90 @@ public class PaymentServiceImpl implements PaymentService {
 	// (online + cash), not just the latest/active one per user. Each
 	// payment row is its own record here, unlike seat-details or
 	// users-with-payments which only look at the latest payment per user.
+	// @Override
+	// public Map<String, Object> feeRecords(String studentName, String phone, String paymentMode, String month,
+	// 		String expireMonth, String expireYear, int page) {
+	// 	Map<String, Object> result = new LinkedHashMap<>();
+	// 	try {
+	// 		StringBuilder where = new StringBuilder(" where p.status = 'paid' ");
+	// 		List<Object> params = new ArrayList<>();
+
+	// 		if (studentName != null && !studentName.isBlank()) {
+	// 			where.append(" and u.full_name ilike ?").append(params.size() + 1);
+	// 			params.add("%" + studentName + "%");
+	// 		}
+	// 		if (phone != null && !phone.isBlank()) {
+	// 			where.append(" and u.phone_number ilike ?").append(params.size() + 1);
+	// 			params.add("%" + phone + "%");
+	// 		}
+	// 		if (paymentMode != null && !paymentMode.isBlank()) {
+	// 			where.append(" and p.payment_mode = ?").append(params.size() + 1);
+	// 			params.add(paymentMode);
+	// 		}
+	// 		if (month != null && !month.isBlank()) {
+	// 			// Filter by the CALENDAR MONTH (1-12) the payment was
+	// 			// made, regardless of year.
+	// 			where.append(" and extract(month from p.created_at) = ?")
+	// 				.append(params.size() + 1);
+	// 			params.add(Integer.parseInt(month));
+	// 		}
+	// 		if (expireMonth != null && !expireMonth.isBlank()) {
+	// 			// Filter by the CALENDAR MONTH (1-12) the plan expires.
+	// 			where.append(" and extract(month from p.end_plan_date) = ?")
+	// 				.append(params.size() + 1);
+	// 			params.add(Integer.parseInt(expireMonth));
+	// 		}
+	// 		if (expireYear != null && !expireYear.isBlank()) {
+	// 			where.append(" and extract(year from p.end_plan_date) = ?")
+	// 				.append(params.size() + 1);
+	// 			params.add(Integer.parseInt(expireYear));
+	// 		}
+
+	// 		// ---- total count (for pagination) using the SAME filters ----
+	// 		String countQuery =
+	// 			"select count(*) from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " + where;
+	// 		List<Map> countRows = iGenericDao.executeDDLSQL(countQuery, params.toArray());
+	// 		long total = ((Number) countRows.get(0).values().iterator().next()).longValue();
+
+	// 		int limit = getPageLimit();
+	// 		int safePage = Math.max(page, 1);
+	// 		int offset = (safePage - 1) * limit;
+
+	// 		List<Object> dataParams = new ArrayList<>(params);
+	// 		dataParams.add(limit);
+	// 		dataParams.add(offset);
+
+	// 		String query =
+	// 			"select u.user_id as student_id, u.full_name as student_name, u.phone_number as phone, " +
+	// 			"p.amount as amount, p.payment_mode as payment_mode, p.plan_type as plan_type, " +
+	// 			"p.status as status, p.created_at as payment_date, p.end_plan_date as expire_date " +
+	// 			"from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
+	// 			where + " order by p.end_plan_date asc limit ?" + (dataParams.size() - 1) +
+	// 			" offset ?" + dataParams.size();
+
+	// 		List<Map> data = iGenericDao.executeDDLSQL(query, dataParams.toArray());
+
+	// 		result.put("success", true);
+	// 		result.put("page", safePage);
+	// 		result.put("perPage", limit);
+	// 		result.put("total", total);
+	// 		result.put("totalPages", (int) Math.ceil((double) total / limit));
+	// 		result.put("data", data);
+	// 		return result;
+	// 	} catch (Exception e) {
+	// 		e.printStackTrace();
+	// 		result.put("success", false);
+	// 		result.put("message", e.getMessage());
+	// 		return result;
+	// 	}
+	// }
+
 	@Override
 	public Map<String, Object> feeRecords(String studentName, String phone, String paymentMode, String month,
 			String expireMonth, String expireYear, int page) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		try {
-			StringBuilder where = new StringBuilder(" where p.status = 'paid' ");
+			StringBuilder where = new StringBuilder(" where 1=1 ");
 			List<Object> params = new ArrayList<>();
 
 			if (studentName != null && !studentName.isBlank()) {
@@ -1026,14 +1104,11 @@ public class PaymentServiceImpl implements PaymentService {
 				params.add(paymentMode);
 			}
 			if (month != null && !month.isBlank()) {
-				// Filter by the CALENDAR MONTH (1-12) the payment was
-				// made, regardless of year.
 				where.append(" and extract(month from p.created_at) = ?")
 					.append(params.size() + 1);
 				params.add(Integer.parseInt(month));
 			}
 			if (expireMonth != null && !expireMonth.isBlank()) {
-				// Filter by the CALENDAR MONTH (1-12) the plan expires.
 				where.append(" and extract(month from p.end_plan_date) = ?")
 					.append(params.size() + 1);
 				params.add(Integer.parseInt(expireMonth));
@@ -1044,9 +1119,16 @@ public class PaymentServiceImpl implements PaymentService {
 				params.add(Integer.parseInt(expireYear));
 			}
 
-			// ---- total count (for pagination) using the SAME filters ----
-			String countQuery =
-				"select count(*) from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " + where;
+			// Har student ki sirf LATEST paid payment (DISTINCT ON).
+			// Filters is latest row par lagte hain, isliye duplicate/old row kabhi nahi aayegi.
+			String fromClause =
+				"from (select distinct on (pp.user_id) pp.* from payment pp " +
+				"      where pp.status = 'paid' " +
+				"      order by pp.user_id, pp.created_at desc, pp.payment_id desc) p " +
+				"join app_user u on u.user_id = CAST(p.user_id AS integer) ";
+
+			// ---- total count (same filters) ----
+			String countQuery = "select count(*) " + fromClause + where;
 			List<Map> countRows = iGenericDao.executeDDLSQL(countQuery, params.toArray());
 			long total = ((Number) countRows.get(0).values().iterator().next()).longValue();
 
@@ -1062,8 +1144,8 @@ public class PaymentServiceImpl implements PaymentService {
 				"select u.user_id as student_id, u.full_name as student_name, u.phone_number as phone, " +
 				"p.amount as amount, p.payment_mode as payment_mode, p.plan_type as plan_type, " +
 				"p.status as status, p.created_at as payment_date, p.end_plan_date as expire_date " +
-				"from payment p join app_user u on u.user_id = CAST(p.user_id AS integer) " +
-				where + " order by p.end_plan_date asc limit ?" + (dataParams.size() - 1) +
+				fromClause + where +
+				" order by p.end_plan_date asc, p.payment_id asc limit ?" + (dataParams.size() - 1) +
 				" offset ?" + dataParams.size();
 
 			List<Map> data = iGenericDao.executeDDLSQL(query, dataParams.toArray());
