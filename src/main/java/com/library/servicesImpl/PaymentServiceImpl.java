@@ -1162,7 +1162,10 @@ public class PaymentServiceImpl implements PaymentService {
 			String query =
 				"select u.user_id as student_id, u.full_name as student_name, u.phone_number as phone, " +
 				"p.amount as amount, p.payment_mode as payment_mode, p.plan_type as plan_type, " +
-				"p.status as status, p.created_at as payment_date, p.end_plan_date as expire_date " +
+				"case when p.is_active = false and coalesce(p.is_left, false) = true then 'left' " +
+				"when p.is_active = false then 'unpaid' " +
+				"else p.status end as status, " +
+				"p.created_at as payment_date, p.end_plan_date as expire_date " +
 				fromClause + where +
 				" order by p.end_plan_date asc, p.payment_id asc limit ?" + (dataParams.size() - 1) +
 				" offset ?" + dataParams.size();
