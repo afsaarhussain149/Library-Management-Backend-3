@@ -35,8 +35,9 @@ public class PaymentController {
 	}
 
 	@PatchMapping("/approve/{id}")
-	public ResponseEntity<Map<String, Object>> approve(@PathVariable String id) {
-		return ResponseEntity.ok(paymentService.approveCashPayment(id));
+	public ResponseEntity<Map<String, Object>> approve(@PathVariable String id,
+			@RequestParam(required = false) Integer paymentId) {
+		return ResponseEntity.ok(paymentService.approveCashPayment(id, paymentId));
 	}
 
 	@GetMapping("/pending-cash")
@@ -134,9 +135,10 @@ public class PaymentController {
 	}
 	
 	@PatchMapping("/reject/{id}")
-	   public ResponseEntity<Map<String, Object>> reject(@PathVariable String id) {
-	       return ResponseEntity.ok(paymentService.rejectCashPayment(id));
-	   }
+	public ResponseEntity<Map<String, Object>> reject(@PathVariable String id,
+			@RequestParam(required = false) Integer paymentId) {
+		return ResponseEntity.ok(paymentService.rejectCashPayment(id, paymentId));
+	}
 	
 	// "Seat Details" admin page - who is sitting on which seat right now.
 	@GetMapping("/seat-details")

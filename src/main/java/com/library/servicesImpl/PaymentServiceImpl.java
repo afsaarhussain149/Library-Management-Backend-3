@@ -234,43 +234,55 @@ public class PaymentServiceImpl implements PaymentService {
 	// the student would be stuck forever, unable to submit a corrected request.
 	@Override
 	@Transactional
-	public Map<String, Object> rejectCashPayment(String userId) {
-	    Map<String, Object> result = new LinkedHashMap<>();
-	    try {
-	        List<Map> payments = iGenericDao.executeDDLSQL(JavaConstant.GET_LATEST_PENDING_CASH_BY_USER,
-	                new Object[] { userId });
+	public Map<String, Object> rejectCashPayment(String userId, Integer paymentIdParam) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		try {
+			List<Map> payments;
+			if (paymentIdParam != null) {
+				payments = iGenericDao.executeDDLSQL(JavaConstant.GET_PENDING_CASH_BY_ID_AND_USER,
+						new Object[] { paymentIdParam, userId });
+			} else {
+				payments = iGenericDao.executeDDLSQL(JavaConstant.GET_LATEST_PENDING_CASH_BY_USER,
+						new Object[] { userId });
+			}
 
-	        if (payments == null || payments.isEmpty()) {
-	            result.put("success", false);
-	            result.put("message", "No pending cash payment found");
-	            return result;
-	        }
+			if (payments == null || payments.isEmpty()) {
+				result.put("success", false);
+				result.put("message", "No pending cash payment found");
+				return result;
+			}
 
-	        Object paymentId = payments.get(0).get("payment_id");
-	        iGenericDao.executeDMLSQL(JavaConstant.UPDATE_PAYMENT_REJECT_CASH, new Object[] { paymentId });
+			Object paymentId = payments.get(0).get("payment_id");
+			iGenericDao.executeDMLSQL(JavaConstant.DELETE_PENDING_CASH_PAYMENT, new Object[] { paymentId });
 
-	        List<Map> updated = iGenericDao.executeDDLSQL(JavaConstant.GET_PAYMENT_BY_ID, new Object[] { paymentId });
-
-	        result.put("success", true);
-	        result.put("message", "Cash payment rejected");
-	        result.put("payment", updated.get(0));
-	        return result;
-	    } catch (Exception e) {
-	        e.printStackTrace();
-	        result.put("success", false);
-	        result.put("message", "Rejection failed");
-	        return result;
-	    }
+			result.put("success", true);
+			result.put("message", "Cash payment rejected and removed");
+			result.put("deletedPaymentId", paymentId);
+			return result;
+		} catch (Exception e) {
+			e.printStackTrace();
+			result.put("success", false);
+			result.put("message", "Rejection failed");
+			return result;
+		}
 	}
 
 	// ============ PATCH /approve/:id ============
 	@Override
 	@Transactional
-	public Map<String, Object> approveCashPayment(String userId) {
+	public Map<String, Object> approveCashPayment(String userId, Integer paymentIdParam) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		try {
-			List<Map> payments = iGenericDao.executeDDLSQL(JavaConstant.GET_LATEST_PENDING_CASH_BY_USER,
-					new Object[] { userId });
+			List<Map> payments;
+			if (paymentIdParam != null) {
+				// admin ne jo row click ki, bas wahi
+				payments = iGenericDao.executeDDLSQL(JavaConstant.GET_PENDING_CASH_BY_ID_AND_USER,
+						new Object[] { paymentIdParam, userId });
+			} else {
+				// purana frontend: user ki latest pending row
+				payments = iGenericDao.executeDDLSQL(JavaConstant.GET_LATEST_PENDING_CASH_BY_USER,
+						new Object[] { userId });
+			}
 
 			if (payments == null || payments.isEmpty()) {
 				result.put("success", false);
@@ -434,6 +446,9 @@ public class PaymentServiceImpl implements PaymentService {
 				    "u.blood_group as blood_group, u.emergency_number as emergency_number, u.present_address as present_address," +
 				    "u.permanent_address as permanent_address, u.gender as gender, u.aadhar_number as aadhar_number," +
 				    "p.payment_id as payment_id, p.status as payment_status, p.is_active as payment_is_active, " +
+					"case when p.status = 'paid' and p.is_active = false and coalesce(p.is_left, false) = true then 'left' " +
+					"when p.status = 'paid' and p.is_active = false then 'unpaid' " +
+					"else p.status end as payment_display_status, " +
 				    "p.amount as amount, p.plan_hours as plan_hours, p.plan_type as plan_type, " +
 				    "p.shift_label as shift_label, p.shift_time as shift_time, " +
 				    "p.seats as seats, p.created_at as payment_created_at " +
@@ -597,7 +612,11 @@ public class PaymentServiceImpl implements PaymentService {
 			String query =
 				"select u.user_id as user_id, u.full_name as full_name, u.phone_number as phone_number, " +
 				"u.email as email, p.payment_id as payment_id, p.status as payment_status, " +
-				"p.is_active as payment_is_active, p.created_at as payment_created_at " +
+				"p.is_active as payment_is_active, " +
+				"case when p.status = 'paid' and p.is_active = false and coalesce(p.is_left, false) = true then 'left' " +
+				"when p.status = 'paid' and p.is_active = false then 'unpaid' " +
+				"else p.status end as payment_display_status, " +
+				"p.created_at as payment_created_at " +
 				"from app_user u left join lateral (select * from payment pp where pp.user_id = CAST(u.user_id AS text) " +
 				"order by pp.created_at desc limit 1) p on true " + where + " order by u.created_at desc";
 

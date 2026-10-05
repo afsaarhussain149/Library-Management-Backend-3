@@ -46,9 +46,9 @@ public class JavaConstant {
 	public final static String GET_LATEST_PAYMENT_BY_USER_ID =
 			"select * from payment where user_id = ?1 order by created_at desc limit 1";
 	public final static String UPDATE_PAYMENT_ACTIVE_STATUS =
-			"update payment set is_active = ?1, updated_at = CURRENT_TIMESTAMP where payment_id = ?2";
+			"update payment set is_active = ?1, is_left = false, updated_at = CURRENT_TIMESTAMP where payment_id = ?2";
 	public final static String UPDATE_PAYMENT_DEACTIVATE_AND_EXPIRE =
-	        "update payment set is_active = false, seats = null, shift_label = null, shift_time = null, " +
+	        "update payment set is_active = false, is_left = true, seats = null, shift_label = null, shift_time = null, " +
 	        "plan_hours = null, plan_expire_seat_block = true, " + 
 	        "end_plan_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP where payment_id = ?1";
 	public final static String GET_PAYMENT_BY_ORDER_ID =
@@ -158,6 +158,13 @@ public class JavaConstant {
 	public final static String UPDATE_PAYMENT_REJECT_CASH =
 	           "update payment set status = 'rejected', is_approved_by_admin = false, " +
 	           "updated_at = CURRENT_TIMESTAMP where payment_id = ?1";
+
+	public final static String GET_PENDING_CASH_BY_ID_AND_USER =
+    "select * from payment where payment_id = ?1 and user_id = ?2 " +
+    "and payment_mode = 'cash' and status = 'pending'";
+
+	public final static String DELETE_PENDING_CASH_PAYMENT =
+    "delete from payment where payment_id = ?1 and payment_mode = 'cash' and status = 'pending'";
 	
 	// ===================== PASSWORD RESET OTP =====================
 

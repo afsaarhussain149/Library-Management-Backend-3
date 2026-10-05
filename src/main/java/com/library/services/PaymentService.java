@@ -15,7 +15,7 @@ public interface PaymentService {
 
 	Map<String, Object> cashRequest(PaymentDetails paymentDetails);
 
-	Map<String, Object> approveCashPayment(String userId);
+	Map<String, Object> approveCashPayment(String userId, Integer paymentId);
 
 	Map<String, Object> pendingCash();
 
@@ -47,7 +47,7 @@ public interface PaymentService {
 	
 	Map<String, Object> changeSeat(ChangeSeatRequest request);
 	
-	Map<String, Object> rejectCashPayment(String userId);
+	Map<String, Object> rejectCashPayment(String userId, Integer paymentId);
 	
 	Map<String, Object> seatDetails(String studentName, String phone, String seatNo, String month);
 	

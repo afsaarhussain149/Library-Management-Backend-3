@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS payment (
     amount                  NUMERIC(10,2) NOT NULL,
     currency                VARCHAR(10) DEFAULT 'INR',
     is_active               BOOLEAN DEFAULT TRUE,
+       is_left              BOOLEAN DEFAULT FALSE,
     plan_expire_seat_block  BOOLEAN DEFAULT FALSE,
     payment_mode            VARCHAR(20) DEFAULT 'online',   -- online / cash
     plan_hours              INTEGER,
