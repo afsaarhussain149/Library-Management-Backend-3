@@ -606,7 +606,7 @@ public class PaymentServiceImpl implements PaymentService {
 			result.put("key", razorpayKeyId);
 			result.put("userId", p.getUserId());
 			result.put("paymentId", saved != null && !saved.isEmpty() ? saved.get(0).get("payment_id") : null);
-			result.put("endPlanDate", p.getEndPlanDate());
+			result.put("endPlanDate", endPlanDate);
 			return result;
 		} catch (Exception e) {
 			e.printStackTrace();
