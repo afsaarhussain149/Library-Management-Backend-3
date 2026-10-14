@@ -8,6 +8,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -75,6 +77,37 @@ public class PaymentServiceImpl implements PaymentService {
 	}
 
 	private int getPageLimit() { return 10; }
+		// Plan type ke hisaab se kitne mahine
+	private int planMonths(String planType) {
+		if (planType == null) return 1;
+		switch (planType.trim().toLowerCase()) {
+			case "quarterly": return 3;
+			case "half yearly": return 6;
+			case "annual":
+			case "annually": return 12;
+			default: return 1; // Monthly
+		}
+	}
+
+	private String calculateEndPlanDate(String userId, String planType) {
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+		int months = planMonths(planType);
+
+		List<Map> last = iGenericDao.executeDDLSQL(
+				JavaConstant.GET_PAYMENT_PAID_BY_USER_ID, new Object[] { userId });
+		if (last != null && !last.isEmpty()) {
+			Map row = last.get(0);
+			Object end = row.get("end_plan_date");
+			boolean left = Boolean.TRUE.equals(row.get("is_left"));
+			if (end != null && !left) {
+				LocalDate cycleEnd = LocalDate.parse(String.valueOf(end).substring(0, 10)).plusMonths(months);
+				if (cycleEnd.isAfter(today)) {
+					return cycleEnd.toString();
+				}
+			}
+		}
+		return today.plusMonths(months).toString();
+	}
 
 	/**
 	 * Checks whether any of {@code seats} clash (same seat + overlapping shift time) with another
@@ -206,10 +239,11 @@ public class PaymentServiceImpl implements PaymentService {
 				return result;
 			}
 
+			String endPlanDate = calculateEndPlanDate(p.getUserId(), p.getPlanType());
 			iGenericDao.executeDMLSQL(JavaConstant.INSERT_CASH_PAYMENT, new Object[] {
 					p.getUserId(), p.getAmount(), p.getPlanHours(), p.getPlanType(), p.getPlanAmount(),
 					p.getShiftLabel(), p.getShiftTime(), seatsToString(p.getSeats()), toJson(p.getMetadata()),
-					p.getEndPlanDate()
+					endPlanDate
 			});
 
 			List<Map> inserted = iGenericDao.executeDDLSQL(JavaConstant.GET_LATEST_PENDING_CASH_BY_USER,
@@ -556,10 +590,11 @@ public class PaymentServiceImpl implements PaymentService {
 			Order order = razorpay.orders.create(new org.json.JSONObject(orderRequest));
 			String orderId = order.get("id");
 
+			String endPlanDate = calculateEndPlanDate(p.getUserId(), p.getPlanType());
 			iGenericDao.executeDMLSQL(JavaConstant.INSERT_ONLINE_ORDER, new Object[] {
 					p.getUserId(), p.getAmount(), p.getCurrency() != null ? p.getCurrency() : "INR",
 					p.getPlanHours(), p.getPlanType(), p.getPlanAmount(), p.getShiftLabel(), p.getShiftTime(),
-					seatsToString(p.getSeats()), orderId, toJson(p.getMetadata()), p.getEndPlanDate()
+					seatsToString(p.getSeats()), orderId, toJson(p.getMetadata()), endPlanDate
 			});
 
 			List<Map> saved = iGenericDao.executeDDLSQL(JavaConstant.GET_PAYMENT_BY_ORDER_ID, new Object[] { orderId });
@@ -1137,9 +1172,6 @@ public class PaymentServiceImpl implements PaymentService {
 					.append(params.size() + 1);
 				params.add(Integer.parseInt(expireYear));
 			}
-
-			// Har student ki sirf LATEST paid payment (DISTINCT ON).
-			// Filters is latest row par lagte hain, isliye duplicate/old row kabhi nahi aayegi.
 			String fromClause =
 				"from (select distinct on (pp.user_id) pp.* from payment pp " +
 				"      where pp.status = 'paid' " +
