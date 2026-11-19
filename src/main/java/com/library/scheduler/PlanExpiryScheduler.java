@@ -18,7 +18,8 @@ public class PlanExpiryScheduler {
 	@Autowired
 	IGenericDao iGenericDao;
 
-	@Scheduled(cron = "0 * * * * *") // every minute, same interval as the Node cron job
+	// @Scheduled(cron = "0 * * * * *") // every minute, same interval as the Node cron job
+	@Scheduled(cron = "0 0 * * * *") // every hour (plans expire by date, so per-minute is not needed)
 	@Transactional
 	public void expireOldPlans() {
 		try {
